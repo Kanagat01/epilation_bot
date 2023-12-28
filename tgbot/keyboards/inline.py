@@ -130,9 +130,9 @@ class AdminInlineKeyboard:
     def edit_address_kb(cls):
         keyboard = [
             [InlineKeyboardButton(
-                text="Видео из Кремля", callback_data="edit_address:video_from_kremlin")],
+                text="Видео 1", callback_data="edit_address:video_1")],
             [InlineKeyboardButton(
-                text="Видео от реки", callback_data="edit_address:video_from_river")],
+                text="Видео 2", callback_data="edit_address:video_2")],
             [InlineKeyboardButton(
                 text="Геометка", callback_data="edit_address:location")],
             [InlineKeyboardButton(text='Текст "Адрес"',

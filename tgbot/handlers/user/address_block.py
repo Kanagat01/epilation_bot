@@ -10,8 +10,8 @@ router = Router()
 
 async def address_render(user_id: int | str):
     videos = []
-    video1 = await TextsDAO.get_one_or_none(chapter="video_from_kremlin|address")
-    video2 = await TextsDAO.get_one_or_none(chapter="video_from_river|address")
+    video1 = await TextsDAO.get_one_or_none(chapter="video_1|address")
+    video2 = await TextsDAO.get_one_or_none(chapter="video_2|address")
     if video1:
         videos.append(video1)
     if video2:

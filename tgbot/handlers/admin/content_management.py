@@ -343,7 +343,7 @@ async def edit_address(callback: CallbackQuery, state: FSMContext):
     edit_subject = callback.data.split(":")[1]
     chapter = f"{edit_subject}|address"
     current_subject = await TextsDAO.get_one_or_none(chapter=chapter)
-    if edit_subject == "video_from_kremlin":
+    if edit_subject == "video_1":
         if current_subject:
             await callback.message.answer_video(video=current_subject["text"])
         else:
@@ -351,7 +351,7 @@ async def edit_address(callback: CallbackQuery, state: FSMContext):
         text = "Текущее видео ☝️\nОтправьте ответным сообщением видео, на которое его следует заменить:"
         await state.set_state(AdminFSM.address_video)
         
-    elif edit_subject == "video_from_river":
+    elif edit_subject == "video_2":
         if current_subject:
             await callback.message.answer_video(video=current_subject["text"])
         else:
