@@ -75,7 +75,7 @@ async def get_mailing_text(status: str, only_ten=False):
             client_group = "Клиенты, записанные на определнную дату"
 
         mailings_text.append(
-            f"{mailing['id']}. {mailing['dtime']} / {client_group}")
+            f"{mailing['id']}. {mailing['dtime'].strftime('%d.%m.%Y %H:%M')} / {client_group}")
         ids.append(mailing["id"])
 
     if mailings_text == []:
