@@ -8,7 +8,6 @@ Group=root
 Type=simple
 WorkingDirectory=/root/epilation_bot
 ExecStart=/root/epilation_bot/venv/bin/python bot.py
-StandardOutput=append:/var/log/tgbot/output.log
 Restart=always
 
 [Install]
