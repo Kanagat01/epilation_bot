@@ -170,7 +170,7 @@ async def export_to_csv_max(callback: CallbackQuery):
             gender_translation(client_info["gender"]),
             client_info["birthday"],
             client_info["note"],
-            client_info["entry_point"],
+            client_info["resource"],
             client_info["service_duration"]
         ]
 
@@ -180,7 +180,7 @@ async def export_to_csv_max(callback: CallbackQuery):
             f"Записи клиента {client_info['full_name']}:"
         ], [
             'ID записи', 'Телефон', 'Дата записи', 'Время начала', 'Время окончания',
-            'Список услуг', 'Общая стоимость', 'Статус', 'Источник', 'Аванс'
+            'Список услуг', 'Общая стоимость', 'Статус', 'Аванс'
         ]])
         for reg in client_registrations:
             reg_services = []
@@ -197,7 +197,6 @@ async def export_to_csv_max(callback: CallbackQuery):
                 ", ".join(reg_services),
                 reg['total_price'],
                 status_translation(reg['status']),
-                reg['resource'],
                 reg['advance']
             ]
             data.append(registration_data)
