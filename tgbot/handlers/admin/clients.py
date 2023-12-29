@@ -155,28 +155,27 @@ async def export_to_csv_max(callback: CallbackQuery):
     clients = await ClientsDAO.get_many()
     for client in clients:
         user_id = client["user_id"]
-        full_name = client_info["full_name"]
-        client_info = await ClientsDAO.get_one_or_none(user_id=user_id)
+        full_name = client["full_name"]
         
         data.append([
             'ID клиента', 'Полное имя', 'Username', 'Номер телефона', 'Пол',
             'Дата рождения', 'Примечание', 'Источник', 'Продолжительность услуги'
         ])
         row = [
-            client_info["id"],
+            client["id"],
             full_name,
-            client_info["username"],
-            client_info["phone"],
-            gender_translation(client_info["gender"]),
-            client_info["birthday"],
-            client_info["note"],
-            client_info["resource"],
-            client_info["service_duration"]
+            client["username"],
+            client["phone"],
+            gender_translation(client["gender"]),
+            client["birthday"],
+            client["note"],
+            client["resource"],
+            client["service_duration"]
         ]
         data.append(row)
 
         data.extend([[
-            f"Записи клиента {full_name if full_name != '' else client_info['username']}:"
+            f"Записи клиента {full_name if full_name != '' else client['username']}:"
         ], [
             'ID записи', 'Телефон', 'Дата записи', 'Время начала', 'Время окончания',
             'Список услуг', 'Общая стоимость', 'Статус', 'Аванс'
