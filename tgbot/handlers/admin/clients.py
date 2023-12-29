@@ -151,20 +151,20 @@ async def export_to_csv_min(callback: CallbackQuery):
 
 @router.callback_query(F.data == "export_to_csv_max")
 async def export_to_csv_max(callback: CallbackQuery):
-    data = [[
-            'ID клиента', 'Полное имя', 'Username', 'Номер телефона', 'Пол',
-            'Дата рождения', 'Примечание', 'Источник', 'Продолжительность услуги'
-            ]]
+    data = []
     clients = await ClientsDAO.get_many()
     for client in clients:
         user_id = client["user_id"]
+        full_name = client_info["full_name"]
         client_info = await ClientsDAO.get_one_or_none(user_id=user_id)
-
-        client_registrations = await RegistrationsDAO.get_by_user_id(user_id=user_id)
-
+        
+        data.append([
+            'ID клиента', 'Полное имя', 'Username', 'Номер телефона', 'Пол',
+            'Дата рождения', 'Примечание', 'Источник', 'Продолжительность услуги'
+        ])
         row = [
             client_info["id"],
-            client_info["full_name"],
+            full_name,
             client_info["username"],
             client_info["phone"],
             gender_translation(client_info["gender"]),
@@ -173,33 +173,37 @@ async def export_to_csv_max(callback: CallbackQuery):
             client_info["resource"],
             client_info["service_duration"]
         ]
-
         data.append(row)
 
         data.extend([[
-            f"Записи клиента {client_info['full_name']}:"
+            f"Записи клиента {full_name if full_name != '' else client_info['username']}:"
         ], [
             'ID записи', 'Телефон', 'Дата записи', 'Время начала', 'Время окончания',
             'Список услуг', 'Общая стоимость', 'Статус', 'Аванс'
         ]])
-        for reg in client_registrations:
-            reg_services = []
-            for service_id in reg['services']:
-                service = await ServicesDAO.get_one_or_none(id=service_id)
-                reg_services.append(service["title"])
 
-            registration_data = [
-                reg['id'],
-                reg['phone'],
-                reg['reg_date'],
-                reg['reg_time_start'],
-                reg['reg_time_finish'],
-                ", ".join(reg_services),
-                reg['total_price'],
-                status_translation(reg['status']),
-                reg['advance']
-            ]
-            data.append(registration_data)
+        client_registrations = await RegistrationsDAO.get_by_user_id(user_id=user_id)
+        if len(client_registrations) != 0:
+            for reg in client_registrations:
+                reg_services = []
+                for service_id in reg['services']:
+                    service = await ServicesDAO.get_one_or_none(id=service_id)
+                    reg_services.append(service["title"])
+
+                registration_data = [
+                    reg['id'],
+                    reg['phone'],
+                    reg['reg_date'],
+                    reg['reg_time_start'],
+                    reg['reg_time_finish'],
+                    ", ".join(reg_services),
+                    reg['total_price'],
+                    status_translation(reg['status']),
+                    reg['advance']
+                ]
+                data.append(registration_data)
+        else:
+            data.append("У этого клиента пока нет записей")
     await export_to_csv(callback.from_user.id, data)
 
 
@@ -312,7 +316,7 @@ async def export_client_to_csv(callback: CallbackQuery, state: FSMContext):
             [
                 client["id"], client["user_id"], client["full_name"], client["username"], client["phone"], gender_translation(
                     client["gender"]),
-                client["birthday"], client["note"], client["entry_point"], client["service_duration"]
+                client["birthday"], client["note"], client["resource"], client["service_duration"]
     ],
         ["Записи клиента"]]
     client_regs = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"])
