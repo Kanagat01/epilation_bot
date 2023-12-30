@@ -643,7 +643,7 @@ async def select_service(callback: CallbackQuery, state: FSMContext):
 async def set_reg_date(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
-    category = state_data["category"]
+    category = category_translation(state_data["category"])
     selected_services = state_data["selected_services"]
     services_titles = ", ".join([service['title']
                                 for service in selected_services])

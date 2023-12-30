@@ -80,18 +80,13 @@ async def user_start(message: Message, command: CommandObject, state: FSMContext
 async def phone_record(message: Message, state: FSMContext):
     phone = message.contact.phone_number
     user = await ClientsDAO.get_one_or_none(phone=phone)
-    name = user["full_name"] if user else ""
-    username = f"@{message.from_user.username}" if message.from_user.username else ""
-    state_data = await state.get_data()
-    await ClientsDAO.create(
-        user_id=str(message.from_user.id),
-        username=username,
-        phone=phone,
-        full_name=name,
-        gender="unknown",
-        entry_point=state_data["entry_point"]
-    )
-    await UserMainMenu.menu_type(user_id=str(message.contact.user_id), state=state)
+    if user:
+        await UserMainMenu.menu_type(user_id=str(message.contact.user_id), state=state)
+    else:
+        text = "Напишите, пожалуйста, свою Фамилию и Имя.\nФормат: Иванова Светлана"
+        await state.set_state(UserFSM.full_name_reg)
+        await state.update_data(phone=phone)
+        await message.answer(text)
 
 
 ###############
@@ -107,7 +102,7 @@ async def phone_record(message: Message, state: FSMContext):
 
 @router.message(F.text, UserFSM.manual_phone)
 async def phone_record(message: Message, state: FSMContext):
-    if len(message.text) == 12 and message.text[0:3] == "+79":
+    if len(message.text) == 12 and message.text[0:3] == "+79" and message.text[3:12].isdigit():
         user = await ClientsDAO.get_one_or_none(phone=message.text)
         if user:
             text = "Этот номер телефона уже есть в списке клиентов. Пожалуйста напишите Оксане в личку, чтобы она " \
@@ -130,7 +125,7 @@ async def phone_record(message: Message, state: FSMContext):
 async def msg_to_admin(callback: CallbackQuery):
     phone = callback.data.split(":")[1]
     user = await ClientsDAO.get_one_or_none(phone=phone)
-    cur_username = f"@{callback.from_user.username}" if callback.from_user.username else ""
+    cur_username = f"@{callback.from_user.username}"
     admin_text = f"Пользователь {cur_username} указал номер телефона {phone}, но он уже есть в базе у " \
                  f"клиента {user['username']}. Нужно связаться с ним и убедиться, что это он и подтвердить телефон."
     admin_kb = inline_kb.answer_to_user_kb(user_id=callback.from_user.id)
@@ -194,7 +189,7 @@ async def get_user_birthday(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "main_menu")
 async def main_menu_clb(callback: CallbackQuery, state: FSMContext):
-    username = f"@{callback.from_user.username}" if callback.from_user.username else ""
+    username = f"@{callback.from_user.username}"
     state_data = await state.get_data()
     birthday = datetime.strptime("01.01.1900", "%d.%m.%Y")
     await ClientsDAO.create(
