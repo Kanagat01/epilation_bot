@@ -339,9 +339,8 @@ class AdminInlineKeyboard:
                 inline_btn(services[i+1], i+1)
             ])
         if len(services) % 2 == 1:
-            idx = len(services) // 2
-            service = services[idx]
-            keyboard.append([inline_btn(service, idx)])
+            idx = len(services) - 1
+            keyboard.append([inline_btn(services[idx], idx)])
         keyboard.append([
             InlineKeyboardButton(
                 text="⬅️ Назад", callback_data=f"reg_gender:{gender}")
