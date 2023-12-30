@@ -63,7 +63,7 @@ class ClientsDB(Base):
     full_name = Column(String, nullable=False)
     username = Column(String, nullable=False, server_default="")
     phone = Column(String, nullable=False)
-    gender = Column(String, nullable=False)
+    gender = Column(String, nullable=False)  # boys girls
     birthday = Column(DATE, nullable=True)
     note = Column(TEXT, nullable=True)
     service_duration = Column(Integer, nullable=True)

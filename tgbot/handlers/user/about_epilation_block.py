@@ -53,7 +53,7 @@ async def choice_gender(callback: CallbackQuery):
     epil_type = callback.data.split(":")[1]
     if len(callback.data.split(":")) == 2:
         user = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
-        gender = "boys" if user["gender"] == "male" else "girls"
+        gender = user["gender"]
         step = 1
     else:
         gender = callback.data.split(":")[2]

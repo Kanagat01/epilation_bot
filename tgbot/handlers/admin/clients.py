@@ -611,7 +611,7 @@ async def choose_services_text_and_kb(services: list, category: str, gender: str
 @router.callback_query(F.data.split(":")[0] == "epilation_type")
 async def choose_services(callback: CallbackQuery, state: FSMContext):
     _, category, gender = callback.data.split(":")
-    services = await ServicesDAO.get_many(category=category, gender="boys" if gender == "male" else "girls")
+    services = await ServicesDAO.get_many(category=category, gender=gender)
     await state.update_data({"category": category, "gender": gender, "services": services, "selected_services": []})
     text, kb = await choose_services_text_and_kb(services, category, gender)
     await callback.message.answer("\n".join(text), reply_markup=kb)

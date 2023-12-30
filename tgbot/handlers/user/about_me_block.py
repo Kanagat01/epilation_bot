@@ -80,9 +80,9 @@ async def read_feedbacks(callback: CallbackQuery, state: FSMContext):
     user = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
     if not user:
         return
-    if user["gender"] == "male":
+    if user["gender"] == "boys":
         await boys_feedback_render(page=1, user_id=callback.from_user.id, state=state)
-    elif user["gender"] == "female":
+    elif user["gender"] == "girls":
         await girls_feedbacks_choice(user_id=callback.from_user.id)
     elif user["gender"] == "unknown":
         text = "😎  Отзывов у меня очень много. Для вашего удобства я их разделила на  👩‍🦰 и 👨   , и сделала 2 " \

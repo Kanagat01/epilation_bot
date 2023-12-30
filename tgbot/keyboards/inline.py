@@ -299,9 +299,9 @@ class AdminInlineKeyboard:
         keyboard = [
             [
                 InlineKeyboardButton(
-                    text="Девушка", callback_data="reg_gender:female"),
+                    text="Девушка", callback_data="reg_gender:girls"),
                 InlineKeyboardButton(
-                    text="Мужчина", callback_data="reg_gender:male")
+                    text="Мужчина", callback_data="reg_gender:boys")
             ],
             [
                 InlineKeyboardButton(
@@ -385,9 +385,9 @@ class AdminInlineKeyboard:
         keyboard = [
             [
                 InlineKeyboardButton(
-                    text="Мужчина", callback_data=f"set_client_gender:{user_id}:male"),
+                    text="Мужчина", callback_data=f"set_client_gender:{user_id}:boys"),
                 InlineKeyboardButton(
-                    text="Девушка", callback_data=f"set_client_gender:{user_id}:female")
+                    text="Девушка", callback_data=f"set_client_gender:{user_id}:girls")
             ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
