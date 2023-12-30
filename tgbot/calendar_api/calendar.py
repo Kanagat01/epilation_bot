@@ -8,6 +8,9 @@ from create_bot import local_tz, calendar_service
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, ServicesDAO, category_translation
 
 
+calendar_id = "c79b40b7c6157dbcf51d9fcbefa713a4769450d11175231d4a06b0e22eca0236@group.calendar.google.com"
+
+
 async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_time=time.max):
     try:
         start_time = dt.combine(
@@ -18,7 +21,7 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
         events_result = (
             calendar_service.events()
             .list(
-                calendarId="primary",
+                calendarId=calendar_id,
                 timeMin=start_time,
                 timeMax=end_time,
                 maxResults=1000,
@@ -113,15 +116,16 @@ async def create_event(event_name: str, event_date: dt.date, start_time: dt.time
     }
 
     event = calendar_service.events().insert(
-        calendarId='primary', body=event).execute()
+        calendarId=calendar_id, body=event).execute()
     return event
 
 
 async def delete_event(event_id: int):
     try:
-        calendar_service.events().delete(calendarId='primary', eventId=event_id).execute()
+        calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
     except HttpError as ex:
         print(ex)
+
 
 async def delete_event_by_reg_id(reg_id: int):
     reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
@@ -130,14 +134,14 @@ async def delete_event_by_reg_id(reg_id: int):
         event_id = event[0]["id"]
     except IndexError:
         return
-    calendar_service.events().delete(calendarId='primary', eventId=event_id).execute()
+    calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
 
 
 async def check_interval_for_events(schedule_date, start_time, end_time, except_event_id=None, except_reg_id=None):
     events = await get_events(schedule_date, start_time, end_time)
     if except_event_id:
         events = [event for event in events if event["id"]
-                    != except_event_id]
+                  != except_event_id]
     if except_reg_id:
         reg = await RegistrationsDAO.get_one_or_none(id=except_reg_id)
         event = await get_events(reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])

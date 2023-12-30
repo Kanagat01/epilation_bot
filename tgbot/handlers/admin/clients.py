@@ -156,7 +156,7 @@ async def export_to_csv_max(callback: CallbackQuery):
     for client in clients:
         user_id = client["user_id"]
         full_name = client["full_name"]
-        
+
         data.append([
             'ID клиента', 'Полное имя', 'Username', 'Номер телефона', 'Пол',
             'Дата рождения', 'Примечание', 'Источник', 'Продолжительность услуги'
@@ -202,7 +202,7 @@ async def export_to_csv_max(callback: CallbackQuery):
                 ]
                 data.append(registration_data)
         else:
-            data.append("У этого клиента пока нет записей")
+            data.append(["У этого клиента пока нет записей"])
     await export_to_csv(callback.from_user.id, data)
 
 
@@ -347,11 +347,6 @@ async def export_client_to_csv(callback: CallbackQuery, state: FSMContext):
     await export_to_csv(callback.from_user.id, data)
 
 
-@router.callback_query(F.data == "change_reg")
-async def change_reg(callback: CallbackQuery, state: FSMContext):
-    pass
-
-
 async def edit_client_text_and_kb(client):
     gender = gender_translation(client['gender'])
     regs = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"], is_sorted=True)
@@ -366,7 +361,7 @@ async def edit_client_text_and_kb(client):
         f"Количество приёмов: {len(regs)}",
     ]
 
-    if regs:
+    if len(regs) != 0:
         category = None
         services_text = []
         duration = 0
