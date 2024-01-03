@@ -33,9 +33,10 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
         events = events_result.get("items", [])
         for event in events:
             event_name = event["summary"]
-            full_name = re.sub(r'[^\w\s]', '', event_name)
+            first_name, last_name = re.sub(
+                r'[^\w\s]', '', event_name).split(" ")
 
-            client = await ClientsDAO.get_one_or_none(full_name=full_name)
+            client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
             if client:
                 reg_date_str = event["start"]["dateTime"].split('T')[0]
                 reg_date = dt.strptime(reg_date_str, "%Y-%m-%d").date()
@@ -72,7 +73,8 @@ async def update_event_name(event_name, event_date, start_time, end_time):
     event_name = re.sub(r'[^\w\s]', '', event_name)
     dict1 = {"approved": "✅", "confirmation_sent": "⏳",
              "new_client": "🆕", "advance": "✔️", "not_advance": "❓", "payment_not_work": "❗️"}
-    client = await ClientsDAO.get_one_or_none(full_name=event_name)
+    first_name, last_name = event_name.split(" ")
+    client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
     if client:
         reg = await RegistrationsDAO.get_one_or_none(user_id=client["user_id"], reg_date=event_date, reg_time_start=start_time, reg_time_finish=end_time)
 

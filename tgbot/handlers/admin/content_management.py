@@ -50,7 +50,8 @@ async def refresh_static(message: Message):
     await message.delete()
     await StaticsDAO.delete_all()
     static_path = f"{os.getcwd()}/tgbot/static"
-    directories = ["", "create_reg", "feedback_boys", "feedback_girls_laser", "feedback_girls_bio", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
+    directories = ["", "create_reg", "feedback_boys", "feedback_girls_laser",
+                   "feedback_girls_bio", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
     for directory in directories:
         file_list = []
         for file_type in ["jpg", "jpeg", "png"]:
@@ -65,13 +66,6 @@ async def refresh_static(message: Message):
                 glob.glob(f"{static_path}/{directory}/*.{file_type}"))
         for file in file_list:
             await refresh_static_file(category=directory, file_type="video", file_name=file, chat_id=message.from_user.id)
-
-
-@router.message(F.text == "Управлять контентом")
-async def content_management(message: Message):
-    text = 'Раздел "Управление контентом".\nВыберите, что вы хотите сделать:'
-    kb = inline_kb.content_management_kb()
-    await message.answer(text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "content_management")
@@ -350,7 +344,7 @@ async def edit_address(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer("🤷 Данные отсутствуют")
         text = "Текущее видео ☝️\nОтправьте ответным сообщением видео, на которое его следует заменить:"
         await state.set_state(AdminFSM.address_video)
-        
+
     elif edit_subject == "video_2":
         if current_subject:
             await callback.message.answer_video(video=current_subject["text"])
@@ -358,7 +352,7 @@ async def edit_address(callback: CallbackQuery, state: FSMContext):
             await callback.message.answer("🤷 Данные отсутствуют")
         text = "Текущее видео ☝️\nОтправьте ответным сообщением видео, на которое его следует заменить:"
         await state.set_state(AdminFSM.address_video)
-        
+
     elif edit_subject == "location":
         if current_subject:
             longitude = current_subject["text"].split("|")[0]

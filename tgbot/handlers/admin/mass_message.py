@@ -23,12 +23,6 @@ async def mass_message_text_and_kb():
     return text, kb
 
 
-@router.message(F.text == "Массовое сообщение")
-async def mass_message(message: Message):
-    text, kb = await mass_message_text_and_kb()
-    await message.answer("\n".join(text), reply_markup=kb)
-
-
 @router.callback_query(F.data == "mass_message")
 @router.callback_query(F.data == "cancel")
 async def mass_message(callback: CallbackQuery):

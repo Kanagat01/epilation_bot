@@ -20,84 +20,6 @@ router.message.filter(AdminFilter())
 router.callback_query.filter(AdminFilter())
 
 
-@router.message(F.text == "del")
-async def comm(message: Message):
-    print("start")
-    reg_date = (dt.today() + timedelta(days=1)).date()
-    reg_time_start = time(9, 0)
-    reg_time_finish = time(10, 0)
-    reg = await RegistrationsDAO.get_one_or_none(reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-    await delete_event_by_reg_id(reg["id"])
-    await RegistrationsDAO.delete(reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-
-    reg_time_start = time(11, 0)
-    reg_time_finish = time(12, 0)
-    reg = await RegistrationsDAO.get_one_or_none(reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-    await delete_event_by_reg_id(reg["id"])
-    await RegistrationsDAO.delete(reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-
-    reg_date = (dt.today() + timedelta(days=2)).date()
-    reg_time_start = time(7, 0)
-    reg_time_finish = time(8, 0)
-    reg = await RegistrationsDAO.get_one_or_none(reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-    await delete_event_by_reg_id(reg["id"])
-    await RegistrationsDAO.delete(reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-
-    await message.answer("done")
-
-
-@router.message(F.text == "create_events")
-async def comm(message: Message):
-    reg_date = (dt.today() + timedelta(days=1)).date()
-    reg_time_start = time(9, 0)
-    reg_time_finish = time(10, 0)
-    await RegistrationsDAO.create(
-        reg_date=reg_date,
-        reg_time_start=reg_time_start,
-        reg_time_finish=reg_time_finish,
-        services=[1],
-        total_price=1900,
-        status="approved",
-        phone='77762747213',
-        user_id='740800937',
-        advance='not_required'
-    )
-    await create_event("Kanagat Sharafiyev", reg_date, reg_time_start, reg_time_finish)
-
-    reg_time_start = time(11, 0)
-    reg_time_finish = time(12, 0)
-    await RegistrationsDAO.create(
-        reg_date=reg_date,
-        reg_time_start=reg_time_start,
-        reg_time_finish=reg_time_finish,
-        services=[1],
-        total_price=1900,
-        status="approved",
-        phone='77762747213',
-        user_id='740800937',
-        advance='not_required'
-    )
-    await create_event("Kanagat Sharafiyev", reg_date, reg_time_start, reg_time_finish)
-
-    reg_date = (dt.today() + timedelta(days=2)).date()
-    reg_time_start = time(7, 0)
-    reg_time_finish = time(8, 0)
-    await RegistrationsDAO.create(
-        reg_date=reg_date,
-        reg_time_start=reg_time_start,
-        reg_time_finish=reg_time_finish,
-        services=[1],
-        total_price=1900,
-        status="approved",
-        phone='77762747213',
-        user_id='740800937',
-        advance='not_required'
-    )
-    await create_event("Kanagat Sharafiyev", reg_date, reg_time_start, reg_time_finish)
-
-    await message.answer("done")
-
-
 def schedule_text_and_kb():
     text = [
         "Напишите дату. Формат: 25.05.2022",
@@ -105,13 +27,6 @@ def schedule_text_and_kb():
     ]
     kb = inline_kb.schedule_kb()
     return text, kb
-
-
-@router.message(F.text == "Расписание")
-async def schedule(message: Message, state: FSMContext):
-    text, kb = schedule_text_and_kb()
-    await state.set_state(AdminFSM.schedule_date)
-    await message.answer("\n".join(text), reply_markup=kb)
 
 
 @router.callback_query(F.data == "schedule")
@@ -577,12 +492,13 @@ async def change_reg_id(message: Message, state: FSMContext):
         state_data = await state.get_data()
         cb_data = state_data["cb_data"]
         client = await ClientsDAO.get_one_or_none(user_id=reg["user_id"])
+        full_name = f'{client["first_name"]} {client["last_name"]}'
         reg_date = reg["reg_date"].strftime("%d.%m.%Y")
         reg_time_start = reg["reg_time_start"].strftime("%H:%M")
         await state.update_data({"client": client, "reg": reg, "reg_date": reg_date, "reg_time_start": reg_time_start})
 
         text = [
-            f'Выбрана запись No {reg["id"]} от клиента {client["full_name"]} на {reg_date} {reg_time_start}.',
+            f'Выбрана запись No {reg["id"]} от клиента {full_name} на {reg_date} {reg_time_start}.',
             "Что с ней нужно сделать?"
         ]
         kb = inline_kb.change_reg_id_kb(cb_data)
@@ -597,11 +513,12 @@ async def back_to_change_reg_id(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     reg = state_data["reg"]
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     reg_date = state_data["reg_date"]
     reg_time_start = state_data["reg_time_start"]
     cb_data = state_data["cb_data"]
     text = [
-        f'Выбрана запись No {reg["id"]} от клиента {client["full_name"]} на {reg_date} {reg_time_start}.',
+        f'Выбрана запись No {reg["id"]} от клиента {full_name} на {reg_date} {reg_time_start}.',
         "Что с ней нужно сделать?"
     ]
     kb = inline_kb.change_reg_id_kb(cb_data)
@@ -612,6 +529,7 @@ async def back_to_change_reg_id(callback: CallbackQuery, state: FSMContext):
 async def change_reg_time(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     reg = state_data["reg"]
     reg_date = state_data["reg_date"]
     reg_time_start = state_data["reg_time_start"]
@@ -627,7 +545,7 @@ async def change_reg_time(callback: CallbackQuery, state: FSMContext):
             category = category_translation(service["category"])
 
     text = [
-        f'Клиент №{client["id"]} {client["full_name"]}.',
+        f'Клиент №{client["id"]} {full_name}.',
         f'Текущая запись {reg["id"]} на {reg_date} {reg_time_start}.',
         f'{category}: {", ".join(services_text)}.',
         f'Время процедур (авто): {duration} минут',
@@ -659,6 +577,7 @@ async def new_reg_time(message: Message, state: FSMContext):
     if free_slot:
         reg = state_data["reg"]
         client = state_data["client"]
+        full_name = f'{client["first_name"]} {client["last_name"]}'
         prev_reg_date = state_data["reg_date"]
         prev_time_start = state_data["reg_time_start"]
         category = state_data["category"]
@@ -666,14 +585,14 @@ async def new_reg_time(message: Message, state: FSMContext):
 
         await delete_event_by_reg_id(reg["id"])
         await RegistrationsDAO.update(reg_id=reg["id"], reg_date=reg_date, reg_time_start=start_time, reg_time_finish=finish_time)
-        await create_event(client["full_name"], reg_date, start_time, finish_time)
+        await create_event(full_name, reg_date, start_time, finish_time)
 
         reg_date = reg_date.strftime("%d.%m.%Y")
         start_time = start_time.strftime("%H:%M")
 
         text = [
             f'Время записи {reg["id"]} успешно изменено с {prev_reg_date} {prev_time_start} на {reg_date} {start_time}',
-            f'Клиент №{client["id"]} {client["full_name"]}.',
+            f'Клиент №{client["id"]} {full_name}.',
             f'{category}: {", ".join(services_text)}.',
             f'Время процедур (авто): {duration} минут',
             f'Время процедур (вручную): {client["service_duration"]} минут'
@@ -698,10 +617,11 @@ async def cancel_reg_by_master(callback: CallbackQuery, state: FSMContext):
     await delete_event_by_reg_id(reg["id"])
 
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     reg_date = state_data["reg_date"]
     reg_time_start = state_data["reg_time_start"]
 
-    text = f'Запись No {reg["id"]} от клиента {client["full_name"]} на {reg_date} {reg_time_start} отменена.'
+    text = f'Запись No {reg["id"]} от клиента {full_name} на {reg_date} {reg_time_start} отменена.'
     await callback.message.answer(text)
 
     text = f"Ваша запись на {reg_date} {reg_time_start} отменена мастером."
@@ -713,9 +633,10 @@ async def accept_without_advance(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     reg = state_data["reg"]
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     await RegistrationsDAO.update(reg_id=reg["id"], advance="not_required")
     await delete_event_by_reg_id(reg["id"])
-    await create_event(client["full_name"], reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
+    await create_event(full_name, reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
 
     text = "Оксана подтвердила запись без необходимости вносить предоплату и будет ждать вас."
     await bot.send_message(reg["user_id"], text)

@@ -60,7 +60,8 @@ class ClientsDB(Base):
 
     id = Column(Integer, nullable=False, autoincrement=True, primary_key=True)
     user_id = Column(String, nullable=False)
-    full_name = Column(String, nullable=False)
+    first_name = Column(String, nullable=False)
+    last_name = Column(String, nullable=False)
     username = Column(String, nullable=False, server_default="")
     phone = Column(String, nullable=False)
     gender = Column(String, nullable=False)  # boys girls
@@ -388,9 +389,9 @@ def category_translation(category):
 
 
 def gender_translation(gender):
-    if gender not in ["male", "female"]:
+    if gender not in ["boys", "girls"]:
         return "Неизвестно"
-    return "Мужчина" if gender == "male" else "Девушка"
+    return "Мужчина" if gender == "boys" else "Девушка"
 
 
 def mailing_status_translation(status):

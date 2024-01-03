@@ -36,7 +36,8 @@ class AdminFSM(StatesGroup):
     find_client = State()
     clients_reg_date = State()
     clients_reg_time = State()
-    client_full_name = State()
+    client_first_name = State()
+    client_last_name = State()
     client_phone = State()
     client_birthday = State()
     client_note = State()
@@ -53,11 +54,13 @@ class AdminFSM(StatesGroup):
 class UserFSM(StatesGroup):
     home = State()
     manual_phone = State()
-    full_name_reg = State()
+    first_name_reg = State()
+    last_name_reg = State()
     birthday_reg = State()
 
     main_menu = State()
 
     reg_time = State()
-    full_name_sign = State()
+    first_name_sign = State()
+    last_name_sign = State()
     birthday_sign = State()

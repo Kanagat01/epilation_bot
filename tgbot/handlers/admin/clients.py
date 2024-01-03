@@ -6,7 +6,7 @@ from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
-from create_bot import bot, dp
+from create_bot import bot
 from tgbot.calendar_api.calendar import check_interval_for_events, get_events
 from tgbot.filters.admin import AdminFilter
 from tgbot.misc.registrations import create_registration
@@ -17,17 +17,6 @@ from tgbot.misc.states import AdminFSM
 router = Router()
 router.message.filter(AdminFilter())
 router.callback_query.filter(AdminFilter())
-
-
-@router.message(F.text == "Клиенты")
-async def clients(message: Message, state: FSMContext):
-    text = [
-        "Введите ФИО или номер телефона (формат +79871234567)",
-        'клиента. Или нажмите кнопку "Все клиенты"'
-    ]
-    kb = inline_kb.all_clients_btn_kb()
-    await state.set_state(AdminFSM.find_client)
-    await message.answer("\n".join(text), reply_markup=kb)
 
 
 @router.callback_query(F.data == "clients")
@@ -51,12 +40,14 @@ async def clients_text_and_kb(page=0):
         client_registrations = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"], finished=True, is_sorted=True)
 
         id = client["id"]
-        full_name = client["full_name"]
+        full_name = f'{client["first_name"]} {client["last_name"]}'
         username = client["username"]
         phone = client["phone"]
+        if '+' not in phone:
+            phone = '+' + phone
 
         client_info = [
-            f"{id}. {full_name} {'🆕 ' if len(client_registrations) == 0 else ''}- {username} +{phone} - {len(client_registrations)} приёмов."
+            f"{id}. {full_name} {'🆕 ' if len(client_registrations) == 0 else ''}- {username} {phone} - {len(client_registrations)} приёмов."
         ]
 
         if len(client_registrations) > 0:
@@ -126,7 +117,7 @@ async def export_to_csv_min(callback: CallbackQuery):
     for client in clients:
         row = []
         id = client["id"]
-        full_name = client["full_name"]
+        full_name = f'{client["first_name"]} {client["last_name"]}'
         username = client["username"]
         phone = client["phone"]
 
@@ -155,7 +146,7 @@ async def export_to_csv_max(callback: CallbackQuery):
     clients = await ClientsDAO.get_many()
     for client in clients:
         user_id = client["user_id"]
-        full_name = client["full_name"]
+        full_name = f'{client["first_name"]} {client["last_name"]}'
 
         data.append([
             'ID клиента', 'Полное имя', 'Username', 'Номер телефона', 'Пол',
@@ -208,12 +199,16 @@ async def export_to_csv_max(callback: CallbackQuery):
 
 async def client_text_and_kb(client, page=0):
     registrations = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"], is_sorted=True)
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    phone = client['phone']
+    if '+' not in phone:
+        phone = '+' + phone
     text = [
         f"Клиент № {client['id']}:",
-        f"Фамилия Имя: {client['full_name']}",
+        f"Фамилия Имя: {full_name}",
         f"Пол: {gender_translation(client['gender'])}",
         f"Телеграм: {client['username']}",
-        f"Телефон: +{client['phone']}",
+        f"Телефон: {phone}",
         f"Дата рождения: {client['birthday']}",
         f"Количество приёмов: {len(registrations)}"
     ]
@@ -264,7 +259,7 @@ async def client_text_and_kb(client, page=0):
 @router.message(AdminFSM.find_client)
 async def find_client(message: Message, state: FSMContext):
     if message.text.startswith("+"):
-        phone = message.text.replace("+", "")
+        phone = message.text
         client = await ClientsDAO.get_one_or_none(phone=phone)
         if client:
             await state.set_data({"client": client})
@@ -274,13 +269,14 @@ async def find_client(message: Message, state: FSMContext):
             await message.answer("Клиента с таким номером телефона не найдено")
 
     else:
-        client = await ClientsDAO.get_one_or_none(full_name=message.text)
+        first_name, last_name = message.text.split(" ")
+        client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
         if client:
             await state.set_data({"client": client})
             text, kb = await client_text_and_kb(client)
             await message.answer("\n".join(text), reply_markup=kb)
         else:
-            await message.answer("Клиентов с таким ФИО не найдено")
+            await message.answer("Клиентов с таким ФИО не найдено. Убедитесь что сперва написали имя и затем фамилию.")
 
 
 @router.callback_query(F.data == "back_to_client")
@@ -308,12 +304,13 @@ async def client_regs_pagination(callback: CallbackQuery, state: FSMContext):
 async def export_client_to_csv(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     data = [[
             'ID', 'user_id', 'Полное имя', 'Username', 'Номер телефона', 'Пол',
             'Дата рождения', 'Примечание', 'Источник', 'Продолжительность услуги'
             ],
             [
-                client["id"], client["user_id"], client["full_name"], client["username"], client["phone"], gender_translation(
+                client["id"], client["user_id"], full_name, client["username"], client["phone"], gender_translation(
                     client["gender"]),
                 client["birthday"], client["note"], client["resource"], client["service_duration"]
     ],
@@ -350,13 +347,17 @@ async def export_client_to_csv(callback: CallbackQuery, state: FSMContext):
 async def edit_client_text_and_kb(client):
     gender = gender_translation(client['gender'])
     regs = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"], is_sorted=True)
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    phone = client['phone']
+    if '+' not in phone:
+        phone = '+' + phone
 
     text = [
         f"Клиент № {client['id']}:",
-        f"Фамилия Имя: {client['full_name']}",
+        f"Фамилия Имя: {full_name}",
         f"Пол: {gender}",
         f"Телеграм: {client['username']}",
-        f"Телефон: +{client['phone']}",
+        f"Телефон: {phone}",
         f"Дата рождения: {client['birthday']}",
         f"Количество приёмов: {len(regs)}",
     ]
@@ -394,17 +395,32 @@ async def edit_client(callback: CallbackQuery, state: FSMContext):
 async def change_full_name(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
-    text = f'Введите фамилию и имя для клиента "{client["full_name"]}":'
-    await state.set_state(AdminFSM.client_full_name)
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    text = f'Введите имя для клиента "{full_name}":'
+    await state.set_state(AdminFSM.client_first_name)
     await callback.message.answer(text)
 
 
-@router.message(AdminFSM.client_full_name)
-async def set_client_full_name(message: Message, state: FSMContext):
+@router.message(AdminFSM.client_first_name)
+async def set_client_first_name(message: Message, state: FSMContext):
+    state_data = await state.get_data()
+    client = state_data["client"]
+    user_id = client["user_id"]
+    await ClientsDAO.update(user_id=user_id, first_name=message.text)
+    await message.answer('Поле "Имя" изменено')
+
+    full_name = f'{message.text} {client["last_name"]}'
+    text = f'Введите фамилию для клиента "{full_name}":'
+    await state.set_state(AdminFSM.client_last_name)
+    await message.answer(text)
+
+
+@router.message(AdminFSM.client_last_name)
+async def set_client_last_name(message: Message, state: FSMContext):
     state_data = await state.get_data()
     user_id = state_data["client"]["user_id"]
-    await ClientsDAO.update(user_id=user_id, full_name=message.text)
-    await message.answer('Поле "Фамилия и Имя" изменено')
+    await ClientsDAO.update(user_id=user_id, last_name=message.text)
+    await message.answer('Поле "Фамилия" изменено')
 
     client = await ClientsDAO.get_one_or_none(user_id=user_id)
     text, kb = await edit_client_text_and_kb(client)
@@ -415,7 +431,8 @@ async def set_client_full_name(message: Message, state: FSMContext):
 async def change_gender(callback: CallbackQuery):
     user_id = callback.data.split(":")[1]
     client = await ClientsDAO.get_one_or_none(user_id=user_id)
-    id, full_name = client["id"], client["full_name"]
+    id = client["id"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     text = f"Выберите пол для клиента #{id}: {full_name}:"
     kb = inline_kb.set_client_gender_kb(user_id)
     await callback.message.answer(text, reply_markup=kb)
@@ -434,7 +451,8 @@ async def set_client_gender(callback: CallbackQuery, state: FSMContext):
 async def change_service_duration(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
-    text = f'Введите время процедуры для клиента "{client["full_name"]}" для повторных записей. Формат - целое число в минутах:'
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    text = f'Введите время процедуры для клиента "{full_name}" для повторных записей. Формат - целое число в минутах:'
     await state.set_state(AdminFSM.client_service_duration)
     await callback.message.answer(text)
 
@@ -443,6 +461,7 @@ async def change_service_duration(callback: CallbackQuery, state: FSMContext):
 async def set_client_service_duration(message: Message, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     if message.text.isdigit():
         user_id = client["user_id"]
         await ClientsDAO.update(user_id=user_id, service_duration=int(message.text))
@@ -453,7 +472,7 @@ async def set_client_service_duration(message: Message, state: FSMContext):
         await message.answer("\n".join(text), reply_markup=kb)
 
     else:
-        text = f'Это не число. Введите время процедуры для клиента "{client["full_name"]}" для повторных записей. Формат - целое число в минутах:'
+        text = f'Это не число. Введите время процедуры для клиента "{full_name}" для повторных записей. Формат - целое число в минутах:'
         await message.answer(text)
 
 
@@ -461,7 +480,8 @@ async def set_client_service_duration(message: Message, state: FSMContext):
 async def change_phone(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
-    text = f'Введите номер телефона для клиента "{client["full_name"]}" в формате +79506238760'
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    text = f'Введите номер телефона для клиента "{full_name}" в формате +79506238760'
     await state.set_state(AdminFSM.client_phone)
     await callback.message.answer(text)
 
@@ -471,10 +491,8 @@ async def set_client_phone(message: Message, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
 
-    valid_phone = message.text.startswith("+")
-    phone = message.text.replace("+", "")
-    valid_phone = valid_phone and phone.isdigit() and len(phone) == 11
-    if valid_phone:
+    if len(message.text) == 12 and message.text[0] == "+" and message.text[1:12].isdigit():
+        phone = message.text
         client_with_this_phone = await ClientsDAO.get_one_or_none(phone=phone)
         if client_with_this_phone:
             text = "Такой телефон уже у другого клиента. Чтобы добавить телефон клиенту, нужно сначала удалить его из карточки другого клиента"
@@ -492,7 +510,8 @@ async def set_client_phone(message: Message, state: FSMContext):
             text, kb = await edit_client_text_and_kb(client)
             await message.answer("\n".join(text), reply_markup=kb)
     else:
-        text = f'Неправильный формат ввода. Введите номер телефона для клиента "{client["full_name"]}" в формате +79506238760'
+        full_name = f'{client["first_name"]} {client["last_name"]}'
+        text = f'Неправильный формат ввода. Введите номер телефона для клиента "{full_name}" в формате +79506238760'
         await message.answer(text)
 
 
@@ -500,7 +519,8 @@ async def set_client_phone(message: Message, state: FSMContext):
 async def change_birthday(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
-    text = f'Введите дату рождения клиента "{client["full_name"]}". Формат: 11.05.1995'
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    text = f'Введите дату рождения клиента "{full_name}". Формат: 11.05.1995'
     await state.set_state(AdminFSM.client_birthday)
     await callback.message.answer(text)
 
@@ -520,7 +540,8 @@ async def set_client_birthday(message: Message, state: FSMContext):
         await message.answer("\n".join(text), reply_markup=kb)
 
     except ValueError:
-        text = f'Неправильный формат ввода. Введите дату рождения клиента "{client["full_name"]}". Формат: 11.05.1995'
+        full_name = f'{client["first_name"]} {client["last_name"]}'
+        text = f'Неправильный формат ввода. Введите дату рождения клиента "{full_name}". Формат: 11.05.1995'
         await message.answer(text)
 
 
@@ -528,7 +549,8 @@ async def set_client_birthday(message: Message, state: FSMContext):
 async def change_note(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
-    text = f'Введите ваш комментарий для клиента "{client["full_name"]}"'
+    full_name = f'{client["first_name"]} {client["last_name"]}'
+    text = f'Введите ваш комментарий для клиента "{full_name}"'
     await state.set_state(AdminFSM.client_note)
     await callback.message.answer(text)
 
@@ -549,6 +571,7 @@ async def set_client_note(message: Message, state: FSMContext):
 async def add_reg(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     client_regs = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"], finished=True, is_sorted=True)
     if len(client_regs) > 0:
         last_reg = client_regs[0]
@@ -564,7 +587,7 @@ async def add_reg(callback: CallbackQuery, state: FSMContext):
             duration_auto += service["duration"]
             service_text.append(service["title"])
         text = [
-            f"Клиент №{client['id']} {client['full_name']}.",
+            f"Клиент №{client['id']} {full_name}.",
             "Последняя запись:",
             f"{reg_category}: {', '.join(service_text)}.",
             f"Время процедур (авто): {duration_auto} минут",
@@ -643,6 +666,7 @@ async def select_service(callback: CallbackQuery, state: FSMContext):
 async def set_reg_date(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     category = category_translation(state_data["category"])
     selected_services = state_data["selected_services"]
     services_titles = ", ".join([service['title']
@@ -651,7 +675,7 @@ async def set_reg_date(callback: CallbackQuery, state: FSMContext):
     await state.update_data({"services_titles": services_titles, "duration": duration})
 
     text = [
-        f"Клиент №{client['id']} {client['full_name']}.\n",
+        f"Клиент №{client['id']} {full_name}.\n",
         f"{category}: {services_titles}.",
         f"Время процедур (авто): {duration} минут",
         f"Время процедур (вручную): {client['service_duration']} минут\n",
@@ -666,6 +690,7 @@ async def set_reg_date(callback: CallbackQuery, state: FSMContext):
 async def set_reg_date_text_and_kb(state: FSMContext, date_object):
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     category = category_translation(state_data["category"])
     events = await get_events(schedule_date=date_object)
     regs = []
@@ -685,12 +710,12 @@ async def set_reg_date_text_and_kb(state: FSMContext, date_object):
     for reg in regs:
         client = await ClientsDAO.get_one_or_none(user_id=reg["user_id"])
         regs_text.append(
-            f"{reg['reg_time_start'].strftime('%H:%M')} - {reg['reg_time_finish'].strftime('%H:%M')} {client['full_name']}")
+            f"{reg['reg_time_start'].strftime('%H:%M')} - {reg['reg_time_finish'].strftime('%H:%M')} {full_name}")
 
     await state.set_state(AdminFSM.clients_reg_time)
 
     text = [
-        f"Клиент №{client['id']} {client['full_name']}.\n",
+        f"Клиент №{client['id']} {full_name}.\n",
         f"{category}: {state_data['services_titles']}.",
         f"Время процедур (авто): {state_data['duration']} минут",
         f"Время процедур (вручную): {client['service_duration']} минут\n",
@@ -738,6 +763,7 @@ async def set_reg_time(message: Message, state: FSMContext):
 
     state_data = await state.get_data()
     client = state_data["client"]
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     reg_time_finish = (datetime.combine(datetime.now(
     ), reg_time_start) + timedelta(minutes=state_data["duration"])).time()
     free_slot = await check_interval_for_events(
@@ -769,9 +795,9 @@ async def set_reg_time(message: Message, state: FSMContext):
         for reg in regs:
             client = await ClientsDAO.get_one_or_none(user_id=reg["user_id"])
             regs_text.append(
-                f"{reg['reg_time_start'].strftime('%H:%M')} - {reg['reg_time_finish'].strftime('%H:%M')} {client['full_name']}")
+                f"{reg['reg_time_start'].strftime('%H:%M')} - {reg['reg_time_finish'].strftime('%H:%M')} {full_name}")
         text = [
-            f"Клиент №{client['id']} {client['full_name']} ЗАПИСАН на {reg_time_start.strftime('%H:%M')}.\n",
+            f"Клиент №{client['id']} {full_name} ЗАПИСАН на {reg_time_start.strftime('%H:%M')}.\n",
             f"{state_data['category']}: {state_data['services_titles']}.",
             f"Время процедур (авто): {state_data['duration']} минут",
             f"Время процедур (вручную): {client['service_duration']} минут\n",
@@ -781,7 +807,7 @@ async def set_reg_time(message: Message, state: FSMContext):
         await message.answer("\n".join(text))
 
         text = [
-            f"👋🏻Приветики, {client['full_name']}!,",
+            f"👋🏻Приветики, {full_name}!,",
             f"Записала тебя на {state_data['reg_date'].strftime('%d.%m.%Y')} {reg_time_start.strftime('%H:%M')}",
             f"на следующие процедуры: {state_data['services_titles']}.",
             f"Сумма к оплате: {total_price}.",

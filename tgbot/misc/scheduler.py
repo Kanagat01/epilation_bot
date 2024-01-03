@@ -89,9 +89,13 @@ class MailingScheduler(BaseScheduler):
     @classmethod
     async def func(cls, mailing_id: int):
         mailing = await MailingsDAO.get_one_or_none(id=mailing_id)
-        text = mailing["text"]
         clients = await MailingsDAO.get_clients_from_client_group(client_group=mailing["client_group"])
         for client in clients:
+            if "{{ИМЯ}}" in mailing["text"]:
+                text = mailing["text"].replace("{{ИМЯ}}", client["first_name"])
+            else:
+                text = mailing["text"]
+
             await bot.send_message(chat_id=client["user_id"], text=text)
         await MailingsDAO.update(id=mailing_id, status="sent")
 
@@ -115,7 +119,13 @@ class AutoTextScheduler(BaseScheduler):
     async def func(cls, auto_text: str, user_id: int):
         text_dict = await TextsDAO.get_one_or_none(chapter=f"text|{auto_text}")
         if text_dict:
-            await bot.send_message(chat_id=user_id, text=text_dict["text"])
+            if "{{ИМЯ}}" in text_dict["text"]:
+                client = await ClientsDAO.get_one_or_none(user_id=user_id)
+                text = text_dict["text"].replace(
+                    "{{ИМЯ}}", client["first_name"])
+            else:
+                text = text_dict["text"]
+            await bot.send_message(chat_id=user_id, text=text)
 
     @classmethod
     async def create(cls, auto_text: str, user_id: int, dtime: datetime):
@@ -150,7 +160,12 @@ class HolidayScheduler(BaseScheduler):
                 clients = await ClientsDAO.get_many(birthday=datetime.today().date())
 
             for client in clients:
-                await bot.send_message(chat_id=client["user_id"], text=text_dict["text"])
+                if "{{ИМЯ}}" in text_dict["text"]:
+                    text = text_dict["text"].replace(
+                        "{{ИМЯ}}", client["first_name"])
+                else:
+                    text = text_dict["text"]
+                await bot.send_message(chat_id=client["user_id"], text=text)
 
         dtime = datetime.today()
         dtime = dtime.replace(year=dtime.year + 1)

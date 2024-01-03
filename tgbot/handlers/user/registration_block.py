@@ -36,15 +36,15 @@ class UserMainMenu:
     @classmethod
     async def menu_type(cls, user_id: str, state: FSMContext):
         user = await ClientsDAO.get_one_or_none(user_id=user_id)
-        name = user["full_name"] if user else ""
         if user:
+            name = f'{user["first_name"]} {user["last_name"]}'
             finished_registrations = await RegistrationsDAO.get_many(user_id=user_id, status="finished")
             if len(finished_registrations) > 0:
                 await cls.current_clients_menu(user_id=user_id, name=name)
             else:
                 await cls.new_clients_menu(user_id=user_id, name=name)
         else:
-            await cls.new_clients_menu(user_id=user_id, name=name)
+            await cls.new_clients_menu(user_id=user_id, name="")
         await state.set_state(UserFSM.main_menu)
 
 
@@ -83,8 +83,8 @@ async def phone_record(message: Message, state: FSMContext):
     if user:
         await UserMainMenu.menu_type(user_id=str(message.contact.user_id), state=state)
     else:
-        text = "Напишите, пожалуйста, свою Фамилию и Имя.\nФормат: Иванова Светлана"
-        await state.set_state(UserFSM.full_name_reg)
+        text = "Напишите, пожалуйста, свое Имя"
+        await state.set_state(UserFSM.first_name_reg)
         await state.update_data(phone=phone)
         await message.answer(text)
 
@@ -110,9 +110,9 @@ async def phone_record(message: Message, state: FSMContext):
                    "уведомления 💌"
             kb = inline_kb.phone_in_base_kb(phone=message.text)
         else:
-            text = "Напишите, пожалуйста, свою Фамилию и Имя.\nФормат: Иванова Светлана"
+            text = "Напишите, пожалуйста, свое Имя"
             kb = None
-            await state.set_state(UserFSM.full_name_reg)
+            await state.set_state(UserFSM.first_name_reg)
             await state.update_data(phone=message.text)
     else:
         text = "К сожалению, не удалось введённое сообщение определить как номер телефона. Пожалуйста, напишите " \
@@ -144,11 +144,19 @@ async def correct_phone(callback: CallbackQuery, state: FSMContext):
     await bot.answer_callback_query(callback.id)
 
 
-@router.message(F.text, UserFSM.full_name_reg)
-async def get_full_name(message: Message, state: FSMContext):
+@router.message(F.text, UserFSM.first_name_reg)
+async def get_first_name(message: Message, state: FSMContext):
+    text = "Напишите, пожалуйста, свою Фамилию"
+    await state.update_data(first_name=message.text)
+    await state.set_state(UserFSM.last_name_reg)
+    await message.answer(text)
+
+
+@router.message(F.text, UserFSM.last_name_reg)
+async def get_last_name(message: Message, state: FSMContext):
     text = "Выберите пол:"
     kb = inline_kb.user_gender_kb()
-    await state.update_data(full_name=message.text)
+    await state.update_data(last_name=message.text)
     await message.answer(text, reply_markup=kb)
 
 
@@ -171,7 +179,8 @@ async def get_user_birthday(message: Message, state: FSMContext):
         state_data = await state.get_data()
         await ClientsDAO.create(
             user_id=str(message.from_user.id),
-            full_name=state_data["full_name"],
+            first_name=state_data["first_name"],
+            last_name=state_data["last_name"],
             username=username,
             phone=state_data["phone"],
             gender=state_data["gender"],
@@ -194,7 +203,8 @@ async def main_menu_clb(callback: CallbackQuery, state: FSMContext):
     birthday = datetime.strptime("01.01.1900", "%d.%m.%Y")
     await ClientsDAO.create(
         user_id=str(callback.from_user.id),
-        full_name=state_data["full_name"],
+        first_name=state_data["first_name"],
+        last_name=state_data["last_name"],
         username=username,
         phone=state_data["phone"],
         gender=state_data["gender"],

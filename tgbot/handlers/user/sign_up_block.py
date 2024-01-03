@@ -70,7 +70,7 @@ async def check_user(user_id: str | int):
 
 
 async def is_created_reg(user_id: str | int, user: dict, reg_profile: dict):
-    full_name = user["full_name"]
+    full_name = f'{user["first_name"]} {user["last_name"]}'
     reg_date = reg_profile["reg_date"].strftime("%d-%m-%Y")
     reg_time = reg_profile["reg_time_start"].strftime("%H:%M")
     total_price = reg_profile["total_price"]
@@ -89,9 +89,10 @@ async def cancel_or_move_reg(callback: CallbackQuery):
     reg_id = callback.data.split(":")[1]
     finished_regs = await RegistrationsDAO.get_by_user_id(user_id=str(callback.from_user.id), finished=True)
     client = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     if len(finished_regs) == 0:
         text = [
-            f'Приветствую, {client["full_name"]}!',
+            f'Приветствую, {full_name}!',
             "Получила от вас просьбу об отмене 😔 записи. Надеюсь,🤞🏻 у вас",
             "всё хорошо, просто поменялись планы. С радостью перенесу",
             "запись на ближайшую неделю с сохранением аванса💰, но при",
@@ -102,7 +103,7 @@ async def cancel_or_move_reg(callback: CallbackQuery):
         ]
     else:
         text = [
-            f'Добрый день, {client["full_name"]}!',
+            f'Добрый день, {full_name}!',
             "Получила от вас просьбу об отмене ❌ записи, надеюсь,🤞🏻 у тебя",
             "всё хорошо, просто поменялись планы. Буду ждать от тебя новостей",
             "о новой записи или перенести ⏭ твою запись прямо сейчас?",
@@ -445,10 +446,11 @@ async def finish_registration(user_id: str | int, state: FSMContext):
         reg_time_finish = (datetime.combine(
             reg_date, reg_time) + timedelta(minutes=duration)).time()
         client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
+        full_name = f'{client["first_name"]} {client["last_name"]}'
 
         await delete_event_by_reg_id(reg_id=reg_id)
         await RegistrationsDAO.update(reg_id=reg_id, reg_date=reg_date, reg_time_start=reg_time, reg_time_finish=reg_time_finish)
-        await create_event(client["full_name"], reg_date, reg_time, reg_time_finish)
+        await create_event(full_name, reg_date, reg_time, reg_time_finish)
 
         text = f"Ваша запись успешно перенесена на {reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')}." \
                f"\nХорошего дня и отличного настроения 🌻"
@@ -509,7 +511,7 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
     user_id = str(callback.from_user.id)
     user = await ClientsDAO.get_one_or_none(user_id=user_id)
     if user:
-        full_name = user["full_name"]
+        full_name = f'{user["first_name"]} {user["last_name"]}'
         phone = user["phone"]
     else:
         return
@@ -539,9 +541,8 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
             await bot.send_message(chat_id=chat_id, text=text)
 
             if full_name == "":
-                await state.set_state(UserFSM.full_name_sign)
-                name_text = "Осталось ввести ваши ФИ, для завершения записи.\n\nНапишите, пожалуйста, свою Фамилию " \
-                            "и Имя.\nФормат: Иванова Светлана"
+                await state.set_state(UserFSM.first_name_sign)
+                name_text = "Осталось ввести ваши ФИ, для завершения записи.\n\nНапишите, пожалуйста, свое Имя"
                 await bot.send_message(chat_id=chat_id, text=name_text)
             else:
                 await check_birthday(user_id=user_id, state=state)
@@ -570,10 +571,18 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
         await bot.answer_callback_query(callback.id)
 
 
-@router.message(F.text, UserFSM.full_name_sign)
+@router.message(F.text, UserFSM.first_name_sign)
+async def first_name_sign(message: Message, state: FSMContext):
+    first_name = message.text.strip()
+    await ClientsDAO.update(user_id=str(message.from_user.id), first_name=first_name)
+    await state.set_state(UserFSM.last_name_sign)
+    await message.answer("Отлично! Теперь введите свою Фамилию")
+
+
+@router.message(F.text, UserFSM.last_name_sign)
 async def finish_reg(message: Message, state: FSMContext):
-    full_name = message.text.strip()
-    await ClientsDAO.update(user_id=str(message.from_user.id), full_name=full_name)
+    last_name = message.text.strip()
+    await ClientsDAO.update(user_id=str(message.from_user.id), last_name=last_name)
     await state.set_state(UserFSM.home)
     await check_birthday(user_id=message.from_user.id, state=state)
 
@@ -700,9 +709,10 @@ async def successful_payment(message: Message, state: FSMContext):
     reg_id = state_data["reg_id"]
     reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
     client = await ClientsDAO.get_one_or_none(user_id=reg["user_id"])
+    full_name = f'{client["first_name"]} {client["last_name"]}'
     await delete_event_by_reg_id(reg_id=reg_id)
     await RegistrationsDAO.update(reg_id=reg_id, advance="finished")
-    await create_event(client["full_name"], reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
+    await create_event(full_name, reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
 
     await bot.send_message(message.chat.id,
                            f"Платеж на сумму {message.successful_payment.total_amount // 100} {message.successful_payment.currency} прошел успешно!!!")

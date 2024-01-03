@@ -21,7 +21,7 @@ async def necessary_routine_text_and_kb():
             reg_date = x['reg_date']
             reg_time_start = x['reg_time_start']
             user = await ClientsDAO.get_one_or_none(user_id=x["user_id"])
-            full_name = user["full_name"]
+            full_name = f'{user["first_name"]} {user["last_name"]}'
             full_names.append(full_name)
             registrations.append(f"{reg_date} {reg_time_start} {full_name}")
 
@@ -37,13 +37,6 @@ async def necessary_routine_text_and_kb():
         ]
     kb = inline_kb.necessary_routine_kb(regs, full_names)
     return text, kb
-
-
-@router.message(F.text == "Необходимая рутина")
-async def necessary_routine(message: Message, state: FSMContext):
-    await state.clear()
-    text, kb = await necessary_routine_text_and_kb()
-    await message.answer("\n".join(text), reply_markup=kb)
 
 
 @router.callback_query(F.data == "necessary_routine")
@@ -113,7 +106,7 @@ async def set_registration_price(message: Message, state: FSMContext):
         duration += service["duration"]
         services_text.append(service["title"])
 
-    services_text =  "\n".join(services_text)
+    services_text = "\n".join(services_text)
     full_name = state_data["full_name"]
     if message.text.isdigit():
         total_price = int(message.text)

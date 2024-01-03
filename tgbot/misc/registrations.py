@@ -34,8 +34,8 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
         advance=advance
     )
     client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
-    await create_event(client["full_name"], data["reg_date"], start_time, finish_time)
-    
+    await create_event(f'{client["first_name"]} {client["last_name"]}', data["reg_date"], start_time, finish_time)
+
     registration = await RegistrationsDAO.get_one_or_none(
         reg_date=data["reg_date"],
         reg_time_start=start_time
@@ -48,7 +48,7 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
         ("after_1m", reg_datetime + timedelta(days=30)),
         ("after_3m", reg_datetime + timedelta(days=90))
     ]
-    
+
     finished_regs = await RegistrationsDAO.get_many(user_id=str(user_id), status="finished")
     if len(finished_regs) > 0:
         auto_texts.append(("before_24h_old", reg_datetime - timedelta(days=1)))
@@ -57,7 +57,8 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
 
     service = await ServicesDAO.get_one_or_none(id=services_ids[0])
     if service["category"] == "laser":
-        auto_texts.append(("after_3h_laser", reg_datetime + timedelta(hours=3)))
+        auto_texts.append(
+            ("after_3h_laser", reg_datetime + timedelta(hours=3)))
     else:
         auto_texts.append(("after_3h_bio", reg_datetime + timedelta(hours=3)))
 
