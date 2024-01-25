@@ -133,9 +133,6 @@ async def delete_event_by_reg_id(reg_id: int):
     try:
         await delete_event(event[0]["id"])
     except IndexError:
-        print("index error:", reg["reg_date"],
-              reg["reg_time_start"], reg["reg_time_finish"])
-        print("event:", event)
         pass
 
 
