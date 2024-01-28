@@ -10,7 +10,7 @@ from aiogram.types.labeled_price import LabeledPrice
 
 from create_bot import bot, scheduler, payments_token
 from tgbot.calendar_api.calendar import create_event, delete_event_by_reg_id
-from tgbot.misc.registrations import create_registration
+from tgbot.misc.registrations import cancel_registration, create_registration
 from tgbot.misc.scheduler import HolidayScheduler, PayRegistration2HoursScheduler
 from tgbot.misc.states import UserFSM
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, StaticsDAO, ServicesDAO, category_translation
@@ -120,8 +120,7 @@ async def cancel_or_move_reg(callback: CallbackQuery):
 @router.callback_query(F.data.split(":")[0] == "cancel_reg")
 async def cancel_reg(callback: CallbackQuery):
     reg_id = int(callback.data.split(":")[1])
-    await RegistrationsDAO.update(reg_id=reg_id, status="cancelled")
-    await delete_event_by_reg_id(reg_id)
+    await cancel_registration(callback.from_user.id, reg_id, send_message=False)
 
     text = "Ваша запись успешно отменена. Хорошего дня 💐"
     await callback.message.answer(text)
@@ -141,6 +140,7 @@ async def cancel_reg(callback: CallbackQuery):
 async def move_reg(callback: CallbackQuery):
     reg_id = int(callback.data.split(":")[1])
     await RegistrationsDAO.update(reg_id=reg_id, status="moved")
+    delete_event_by_reg_id(reg_id)
     reg_type = "move_reg"
     await is_finished_reg(str(callback.from_user.id), reg_type)
 

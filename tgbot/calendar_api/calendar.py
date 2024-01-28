@@ -11,57 +11,53 @@ calendar_id = "c79b40b7c6157dbcf51d9fcbefa713a4769450d11175231d4a06b0e22eca0236@
 
 
 async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_time=time.max):
-    try:
-        start_time = dt.combine(
-            schedule_date, start_time, tzinfo=local_tz_obj).isoformat()
-        end_time = dt.combine(
-            schedule_date, end_time, tzinfo=local_tz_obj).isoformat()
+    start_time = dt.combine(
+        schedule_date, start_time, tzinfo=local_tz_obj).isoformat()
+    end_time = dt.combine(
+        schedule_date, end_time, tzinfo=local_tz_obj).isoformat()
 
-        events_result = (
-            calendar_service.events()
-            .list(
-                calendarId=calendar_id,
-                timeMin=start_time,
-                timeMax=end_time,
-                maxResults=1000,
-                singleEvents=True,
-                orderBy="startTime",
-            )
-            .execute()
+    events_result = (
+        calendar_service.events()
+        .list(
+            calendarId=calendar_id,
+            timeMin=start_time,
+            timeMax=end_time,
+            maxResults=1000,
+            singleEvents=True,
+            orderBy="startTime",
         )
-        events = events_result.get("items", [])
-        for event in events:
-            event_name = event["summary"]
-            first_name, last_name = re.sub(
-                r'[^\w\s]', '', event_name).split(" ")
+        .execute()
+    )
+    events = events_result.get("items", [])
+    for event in events:
+        event_name = event["summary"]
+        first_name, last_name = re.sub(
+            r'[^\w\s]', '', event_name).split(" ")
 
-            client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
-            if client:
-                reg_date_str = event["start"]["dateTime"].split('T')[0]
-                reg_date = dt.strptime(reg_date_str, "%Y-%m-%d").date()
+        client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
+        if client:
+            reg_date_str = event["start"]["dateTime"].split('T')[0]
+            reg_date = dt.strptime(reg_date_str, "%Y-%m-%d").date()
 
-                time_start_str = event["start"]["dateTime"].split('T')[1][:5]
-                reg_time_start = dt.strptime(time_start_str, "%H:%M").time()
+            time_start_str = event["start"]["dateTime"].split('T')[1][:5]
+            reg_time_start = dt.strptime(time_start_str, "%H:%M").time()
 
-                time_finish_str = event["end"]["dateTime"].split('T')[1][:5]
-                reg_time_finish = dt.strptime(time_finish_str, "%H:%M").time()
+            time_finish_str = event["end"]["dateTime"].split('T')[1][:5]
+            reg_time_finish = dt.strptime(time_finish_str, "%H:%M").time()
 
-                username = client["username"]
-                reg = await RegistrationsDAO.get_one_or_none(user_id=client["user_id"], reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
-                category = None
-                services_text = []
-                for service_id in reg["services"]:
-                    service = await ServicesDAO.get_one_or_none(id=service_id)
+            username = client["username"]
+            reg = await RegistrationsDAO.get_one_or_none(user_id=client["user_id"], reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
+            category = None
+            services_text = []
+            for service_id in reg["services"]:
+                service = await ServicesDAO.get_one_or_none(id=service_id)
 
-                    if not category:
-                        category = category_translation(service["category"])
-                    services_text.append(service["title"])
+                if not category:
+                    category = category_translation(service["category"])
+                services_text.append(service["title"])
 
-                event["summary"] = f'{event_name} {username} - {category}: {", ".join(services_text)} [{reg["id"]}]'
-        return events
-
-    except HttpError as error:
-        print(f"An error occurred: {error}")
+            event["summary"] = f'{event_name} {username} - {category}: {", ".join(services_text)} [{reg["id"]}]'
+    return events
 
 
 async def update_event_name(event_name, event_date, start_time, end_time):
@@ -121,19 +117,13 @@ async def create_event(event_name: str, event_date: dt.date, start_time: dt.time
 
 
 async def delete_event(event_id: int):
-    try:
-        calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
-    except HttpError as ex:
-        print(ex)
+    calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
 
 
 async def delete_event_by_reg_id(reg_id: int):
     reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
     event = await get_events(reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
-    try:
-        await delete_event(event[0]["id"])
-    except IndexError:
-        pass
+    await delete_event(event[0]["id"])
 
 
 async def check_interval_for_events(schedule_date, start_time, end_time, except_event_id=None, except_reg_id=None):
