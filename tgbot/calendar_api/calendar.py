@@ -1,20 +1,31 @@
 import re
 from datetime import datetime as dt
-from datetime import time, date
+from datetime import time, date, datetime
 from typing import Union
 from googleapiclient.errors import HttpError
 from create_bot import local_tz, local_tz_obj, calendar_service
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, ServicesDAO, category_translation
 
 
+def async_exception_handler_decorator(func):
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except HttpError as e:
+            print(f"Произошла ошибка: {e}")
+    return wrapper
+
+
 calendar_id = "c79b40b7c6157dbcf51d9fcbefa713a4769450d11175231d4a06b0e22eca0236@group.calendar.google.com"
+tz = datetime.now(local_tz_obj).strftime('%z')
 
 
+@async_exception_handler_decorator
 async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_time=time.max):
     start_time = dt.combine(
-        schedule_date, start_time, tzinfo=local_tz_obj).isoformat()
+        schedule_date, start_time).isoformat() + tz
     end_time = dt.combine(
-        schedule_date, end_time, tzinfo=local_tz_obj).isoformat()
+        schedule_date, end_time).isoformat() + tz
 
     events_result = (
         calendar_service.events()
@@ -92,12 +103,11 @@ async def update_event_name(event_name, event_date, start_time, end_time):
     return event_name
 
 
+@async_exception_handler_decorator
 async def create_event(event_name: str, event_date: dt.date, start_time: dt.time, end_time: dt.time):
     event_name = await update_event_name(event_name, event_date, start_time, end_time)
-    start_time = dt.combine(
-        event_date, start_time).strftime("%Y-%m-%dT%H:%M:%S")
-    end_time = dt.combine(
-        event_date, end_time).strftime("%Y-%m-%dT%H:%M:%S")
+    start_time = dt.combine(event_date, start_time).isoformat()
+    end_time = dt.combine(event_date, end_time).isoformat()
 
     event = {
         'summary': event_name,
@@ -116,6 +126,7 @@ async def create_event(event_name: str, event_date: dt.date, start_time: dt.time
     return event
 
 
+@async_exception_handler_decorator
 async def delete_event(event_id: int):
     calendar_service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
 

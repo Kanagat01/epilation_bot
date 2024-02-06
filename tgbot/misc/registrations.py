@@ -86,4 +86,4 @@ async def cancel_registration(user_id: int | str, reg_id: int, send_message=True
     state = await state_with.get_state()
     if send_message:
         await bot.send_message(chat_id=user_id, text=text)
-    await UserMainMenu.menu_type(user_id=user_id, state=state)
+    await UserMainMenu.menu_type(user_id=str(user_id), state=state)

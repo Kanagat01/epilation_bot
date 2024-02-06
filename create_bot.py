@@ -20,7 +20,7 @@ from tgbot.middlewares.config import ConfigMiddleware
 config = load_config(".env")
 r = redis.Redis(host=config.rds.host, port=config.rds.port, db=config.rds.db)
 storage = RedisStorage(redis=r) if config.tg_bot.use_redis else MemoryStorage()
-# storage = MemoryStorage()
+
 bot = Bot(token=config.tg_bot.token, parse_mode='HTML')
 dp = Dispatcher()
 payments_token = config.tg_bot.payments_token
