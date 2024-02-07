@@ -36,7 +36,8 @@ async def price_render(user_id: str, gender: str):
 @router.message(F.text == "Прайс")
 async def price_list(message: Message):
     user = await ClientsDAO.get_one_or_none(user_id=str(message.from_user.id))
-    gender = user["gender"] if user["gender"] in ["", "unknown"] else "girls"
+    gender = user["gender"] if user["gender"] not in [
+        "", "unknown"] else "girls"
     await price_main(user_id=str(message.from_user.id), gender=gender)
 
 
