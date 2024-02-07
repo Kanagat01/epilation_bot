@@ -72,7 +72,7 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
 async def cancel_registration(user_id: int | str, reg_id: int, send_message=True):
     await RegistrationsDAO.update(reg_id=reg_id, status="cancelled")
     text = "Запись отменена"
-    state_with: FSMContext = FSMContext(
+    state: FSMContext = FSMContext(
         bot=bot,
         storage=dp.storage,
         key=StorageKey(
@@ -83,7 +83,6 @@ async def cancel_registration(user_id: int | str, reg_id: int, send_message=True
 
     )
     await delete_event_by_reg_id(reg_id)
-    state = await state_with.get_state()
     if send_message:
         await bot.send_message(chat_id=user_id, text=text)
     await UserMainMenu.menu_type(user_id=str(user_id), state=state)
