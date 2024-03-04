@@ -64,4 +64,3 @@ venv.bak/
 
 static/
 epilation_bot_tasks.txt
-migrations/versions/
