@@ -26,6 +26,13 @@ async def boys_feedback_render(user_id: str | int, page: int, state: FSMContext)
 
 async def feedbacks_media_group(page: int, category: str, user_id: str | int, state: FSMContext):
     file_list = await StaticsDAO.get_order_list(category=category, like="")
+    videos = [item for item in file_list if item["title"].startswith("video")]
+    numbers = [item for item in file_list if item["title"].isdigit()]
+
+    sorted_videos = sorted(videos, key=lambda x: x["title"])
+    sorted_numbers = sorted(numbers, key=lambda x: x["title"])
+    file_list = sorted_videos + sorted_numbers
+
     first_file = (page - 1) * 10
     if len(file_list) - first_file < 11:
         last_file = len(file_list)
@@ -39,7 +46,7 @@ async def feedbacks_media_group(page: int, category: str, user_id: str | int, st
         media_type = "video" if "video" in file["title"] else "photo"
         media_group.append({"media": file_id, "type": media_type})
     if len(media_group) == 0:
-        await bot.send_message("В этой категории пока нет отзывов")
+        await bot.send_message(chat_id=user_id, text="В этой категории пока нет отзывов")
         return 0
     else:
         media_msg = await bot.send_media_group(chat_id=user_id, media=media_group)

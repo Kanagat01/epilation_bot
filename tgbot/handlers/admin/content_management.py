@@ -10,9 +10,7 @@ from aiogram import F, Router
 from create_bot import bot
 from tgbot.filters.admin import AdminFilter
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
-from tgbot.keyboards.reply import AdminReplyKeyboard as reply_kb
 from tgbot.misc.states import AdminFSM
-from tgbot.models.redis_connector import RedisConnector as rds
 from tgbot.models.sql_connector import TextsDAO, ServicesDAO, StaticsDAO
 
 router = Router()
@@ -50,8 +48,7 @@ async def refresh_static(message: Message):
     await message.delete()
     await StaticsDAO.delete_all()
     static_path = f"{os.getcwd()}/tgbot/static"
-    directories = ["", "create_reg", "feedback_boys", "feedback_girls_laser",
-                   "feedback_girls_bio", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
+    directories = ["", "create_reg", "feedback_boys", "feedback_girls_bio", "feedback_girls_laser", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
     for directory in directories:
         file_list = []
         for file_type in ["jpg", "jpeg", "png"]:
@@ -80,7 +77,8 @@ async def content_management(callback: CallbackQuery):
 # Редактура текстов авторассылки
 
 @router.callback_query(F.data == "edit_auto_texts")
-async def edit_auto_texts(callback: CallbackQuery):
+async def edit_auto_texts(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     text = "Выберите контент, который вы хотите изменить:"
     kb = inline_kb.edit_auto_texts_kb()
     await callback.message.answer(text, reply_markup=kb)
@@ -179,7 +177,8 @@ def service_profile_render(service: dict, service_id: int):
 
 
 @router.callback_query(F.data == "edit_prices")
-async def edit_prices(callback: CallbackQuery):
+async def edit_prices(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     text = "Выберите вид эпиляции и пол:"
     kb = inline_kb.epil_gender_kb()
     await callback.message.answer(text, reply_markup=kb)
@@ -316,7 +315,8 @@ async def edit_info_blocks(callback: CallbackQuery):
 
 
 @router.callback_query(F.data.split(":")[0] == "edit_info_block")
-async def edit_info_blocks(callback: CallbackQuery):
+async def edit_info_blocks(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     text = "Выберите контент, который вы хотите изменить:"
     block = callback.data.split(":")[1]
     if block == "address":

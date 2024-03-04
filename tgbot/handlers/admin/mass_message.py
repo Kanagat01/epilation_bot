@@ -25,7 +25,8 @@ async def mass_message_text_and_kb():
 
 @router.callback_query(F.data == "mass_message")
 @router.callback_query(F.data == "cancel")
-async def mass_message(callback: CallbackQuery):
+async def mass_message(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
     text, kb = await mass_message_text_and_kb()
     await callback.message.answer("\n".join(text), reply_markup=kb)
 
@@ -313,10 +314,15 @@ async def mailing_text(message: Message, state: FSMContext):
         text[0] = f"Рассылка для группы клиентов: {client_group} {state_data['reg_date']}."
 
     await message.answer("\n".join(text))
-    await state.update_data({"mailing_text": message.text})
-
     kb = inline_kb.mailing_text_kb()
-    await message.answer(message.text, reply_markup=kb)
+    if message.content_type == "photo":
+        new_text = message.html_text if message.caption else ""
+        new_photo = message.photo[-1].file_id
+        await message.answer_photo(photo=new_photo, caption=new_text, reply_markup=kb)
+        await state.update_data({"mailing_photo": new_photo, "mailing_text": new_text})
+    else:
+        await state.update_data({"mailing_text": message.text})
+        await message.answer(message.text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "send_mailing")
@@ -325,9 +331,10 @@ async def send_mailing(callback: CallbackQuery, state: FSMContext):
     dtime = state_data["dtime"]
     text = state_data["mailing_text"]
     client_group = state_data["client_group"]
+    photo = state_data["mailing_photo"] if "mailing_photo" in state_data else None
 
     mailing_dtime = dtime if dtime != "now" else datetime.now()
-    await MailingsDAO.create(dtime=mailing_dtime, text=text, client_group=client_group)
+    await MailingsDAO.create(dtime=mailing_dtime, text=text, client_group=client_group, photo=photo)
     mailing = await MailingsDAO.get_one_or_none(dtime=mailing_dtime, text=text, client_group=client_group)
 
     if dtime == "now":

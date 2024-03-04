@@ -95,8 +95,10 @@ class MailingScheduler(BaseScheduler):
                 text = mailing["text"].replace("{{ИМЯ}}", client["first_name"])
             else:
                 text = mailing["text"]
-
-            await bot.send_message(chat_id=client["user_id"], text=text)
+            if mailing["photo"]:
+                await bot.send_photo(chat_id=client["user_id"], photo=mailing["photo"], caption=text)
+            else:
+                await bot.send_message(chat_id=client["user_id"], text=text)
         await MailingsDAO.update(id=mailing_id, status="sent")
 
     @classmethod

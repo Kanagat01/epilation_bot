@@ -44,7 +44,8 @@ async def price_list(message: Message):
 @router.callback_query(F.data == "price")
 async def price_list(callback: CallbackQuery):
     user = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
-    gender = user["gender"] if user["gender"] in ["", "unknown"] else "girls"
+    gender = user["gender"] if user["gender"] not in [
+        "", "unknown"] else "girls"
     await price_main(user_id=str(callback.from_user.id), gender=gender)
     await bot.answer_callback_query(callback.id)
 

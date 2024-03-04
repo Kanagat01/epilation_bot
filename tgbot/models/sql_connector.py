@@ -82,6 +82,7 @@ class MailingsDB(Base):
     client_group = Column(String, nullable=False)
     dtime = Column(TIMESTAMP, nullable=False)
     text = Column(TEXT, nullable=False)
+    photo = Column(TEXT, nullable=True)
     # Статус: waiting, sent
     status = Column(String, nullable=False, default="waiting")
 

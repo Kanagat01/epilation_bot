@@ -269,7 +269,11 @@ async def find_client(message: Message, state: FSMContext):
             await message.answer("Клиента с таким номером телефона не найдено")
 
     else:
-        first_name, last_name = message.text.split(" ")
+        try:
+            first_name, last_name = message.text.split(" ")
+        except ValueError:
+            await message.answer("Напишите имю и фамилию разделив через пробел")
+            return
         client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
         if client:
             await state.set_data({"client": client})
