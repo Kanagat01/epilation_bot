@@ -48,7 +48,8 @@ async def refresh_static(message: Message):
     await message.delete()
     await StaticsDAO.delete_all()
     static_path = f"{os.getcwd()}/tgbot/static"
-    directories = ["", "create_reg", "feedback_boys", "feedback_girls_bio", "feedback_girls_laser", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
+    directories = ["", "create_reg", "feedback_boys", "feedback_girls_bio",
+                   "feedback_girls_laser", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
     for directory in directories:
         file_list = []
         for file_type in ["jpg", "jpeg", "png"]:
@@ -551,9 +552,9 @@ async def about_me_text(message: Message, state: FSMContext):
     current_subject = state_data["current_subject"]
     if message.content_type == "text":
         if current_subject:
-            await TextsDAO.update(chapter="text|about_me", text=message.text)
+            await TextsDAO.update(chapter="text|about_me", text=message.html_text)
         else:
-            await TextsDAO.create(chapter="text|about_me", text=message.text)
+            await TextsDAO.create(chapter="text|about_me", text=message.html_text)
         text = "Выберите контент, который вы хотите изменить:"
         kb = inline_kb.edit_about_me_kb()
         await state.set_state(AdminFSM.home)

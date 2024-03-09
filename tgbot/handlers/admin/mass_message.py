@@ -321,7 +321,7 @@ async def mailing_text(message: Message, state: FSMContext):
         await message.answer_photo(photo=new_photo, caption=new_text, reply_markup=kb)
         await state.update_data({"mailing_photo": new_photo, "mailing_text": new_text})
     else:
-        await state.update_data({"mailing_text": message.text})
+        await state.update_data({"mailing_text": message.html_text})
         await message.answer(message.text, reply_markup=kb)
 
 

@@ -658,13 +658,14 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
         reg_date = state_data["reg_date"]
         reg_time = state_data["reg_time"]
         services = state_data["services"]
+        price = state_data["price"]
         service_text = []
         for service in services:
             service_text.append(service["title"])
         service_text = ", ".join(service_text)
         text = f"Ехуууу!! 🎉🎉🎉  Все данные заполнены.\n\n\nЗаписала тебя на " \
                f"{reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')} на следующие процедуры: " \
-               f"{service_text}.\nСумма к оплате: {user['price']} ₽.\nХорошего дня и отличного настроения!🌼"
+               f"{service_text}.\nСумма к оплате: {price} ₽.\nХорошего дня и отличного настроения!🌼"
         kb = None
     else:
         text = "Ехуууу!! 🎉🎉🎉  Все данные заполнены. Запись сформирована. После внесения вам аванса придёт " \
@@ -682,7 +683,7 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
         await PayRegistration2HoursScheduler.create(callback.from_user.id, reg_id)
         text = 'Нажмите "Оплатить 500р" и вас перенаправит на платёжную форму для оплаты. Она безопасно!'
         kb = UserSignUpInline.pay_advance_kb(reg_id=reg_id)
-        await callback.message.answer(text, reply_markup=kb)
+    await callback.message.answer(text, reply_markup=kb)
 
 
 @router.callback_query(F.data.split(":")[0] == "pay_advance")
