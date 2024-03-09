@@ -322,7 +322,7 @@ async def mailing_text(message: Message, state: FSMContext):
         await state.update_data({"mailing_photo": new_photo, "mailing_text": new_text})
     else:
         await state.update_data({"mailing_text": message.html_text})
-        await message.answer(message.text, reply_markup=kb)
+        await message.answer(message.html_text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "send_mailing")
