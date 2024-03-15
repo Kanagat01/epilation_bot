@@ -59,7 +59,7 @@ async def refresh_static(message: Message):
             await refresh_static_file(category=directory, file_type="photo", file_name=file, chat_id=message.from_user.id)
 
         file_list = []
-        for file_type in ["mp4", "mov"]:
+        for file_type in ["mp4", "mov", "MOV", "MP4"]:
             file_list.extend(
                 glob.glob(f"{static_path}/{directory}/*.{file_type}"))
         for file in file_list:

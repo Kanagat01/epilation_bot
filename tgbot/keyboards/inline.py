@@ -681,7 +681,7 @@ class UserInlineKeyboard:
 
     @classmethod
     def feedbacks_girls_kb(cls, page, category):
-        category_text = "лазерной эпиляции" if category == "feedback_girls_laser" else "биоэпиляции"
+        category_text = "биоэпиляции" if category == "feedback_girls_laser" else "лазерной эпиляции"
         other_category = "feedback_girls_bio" if category == "feedback_girls_laser" else "feedback_girls_laser"
         keyboard = [
             [InlineKeyboardButton(
@@ -895,14 +895,16 @@ class UserSignUpInline:
                             text=f"{text_2} {sign_2}", callback_data=f"switch_service:{service_id_2}"),
                     ]
                 )
-        keyboard.append(
-            [
+        back_and_forth = [
+            InlineKeyboardButton(
+                text="⬅️ Назад", callback_data=f"create_reg|gender:{gender}")
+        ]
+        if len(ok_services) > 0:
+            back_and_forth.append(
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data=f"create_reg|gender:{gender}"),
-                InlineKeyboardButton(
-                    text="Далее ➡️", callback_data="main_menu_c_accept"),
-            ]
-        )
+                    text="Далее ➡️", callback_data="main_menu_c_accept")
+            )
+        keyboard.append(back_and_forth)
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
