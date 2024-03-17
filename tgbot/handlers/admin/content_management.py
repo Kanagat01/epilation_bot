@@ -9,6 +9,7 @@ from aiogram import F, Router
 
 from create_bot import bot
 from tgbot.filters.admin import AdminFilter
+from tgbot.handlers.helpers import feedbacks_media_group, sort_feedbacks
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
 from tgbot.models.sql_connector import TextsDAO, ServicesDAO, StaticsDAO
@@ -46,11 +47,11 @@ async def refresh_static_file(
 @router.message(Command("refresh_static"))
 async def refresh_static(message: Message):
     await message.delete()
-    await StaticsDAO.delete_all()
     static_path = f"{os.getcwd()}/tgbot/static"
-    directories = ["", "create_reg", "feedback_boys", "feedback_girls_bio",
-                   "feedback_girls_laser", "laser_boys", "laser_girls", "bio_boys", "bio_girls"]
+    directories = ["", "create_reg", "laser_boys",
+                   "laser_girls", "bio_boys", "bio_girls"]
     for directory in directories:
+        await StaticsDAO.delete(category=directory)
         file_list = []
         for file_type in ["jpg", "jpeg", "png"]:
             file_list.extend(
@@ -569,6 +570,182 @@ async def about_me_text(message: Message, state: FSMContext):
         kb = inline_kb.back_btn(cb_data=f"edit_info_block:{chapter}")
         await state.set_state(AdminFSM.about_me_text)
     await message.answer(text, reply_markup=kb)
+
+
+##################
+#  Редактура отзывов
+
+@router.callback_query(F.data == "edit_feedbacks")
+async def edit_feedbacks(callback: CallbackQuery):
+    text = "Выберите категорию, в которой хотите изменить отзывы"
+    kb = inline_kb.edit_feedbacks_kb()
+    await callback.message.answer(text=text, reply_markup=kb)
+
+
+@router.callback_query(F.data.split(":")[0] == "edit_feedbacks")
+async def edit_feedbacks_category(callback: CallbackQuery, state: FSMContext):
+    await state.clear()
+
+    user_id = callback.from_user.id
+    _, category, page = callback.data.split(":")
+    page = int(page)
+
+    next_page, file_list = await feedbacks_media_group(
+        page, category, user_id, is_admin=True)
+    kb = inline_kb.edit_feedbacks_category_kb(
+        page, category, file_list, next_page)
+    text = "Для выбора отзыва, нажмите на его порядковый номер" if file_list != [
+    ] else "В этой категории пока нет отзывов"
+    await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
+
+
+async def update_feedbacks_order(file_list: list, title: int, is_delete=False):
+    for file in file_list[title-1::]:
+        if not is_delete:
+            title += 1
+        print(title, "id",  file["id"])
+        new_title = "video" + \
+            str(title) if file["title"].startswith("video") else str(title)
+        await StaticsDAO.update(id=file["id"], title=new_title)
+        if is_delete:
+            title += 1
+
+
+async def set_new_order(message: Message, last_feedback_num: int, file_list: list):
+    if message.caption or message.text:
+        try:
+            data = message.caption if message.caption else message.text
+            pack_num, serial_num = map(int, data.split("-"))
+            if pack_num < 1 or serial_num < 1:
+                raise ValueError("Неправильный порядоковый номер")
+        except ValueError:
+            await message.answer("Неправильный порядоковый номер. Укажите порядковый номер в виде пачка-номер, к примеру, 1-3")
+            return
+
+        title = (pack_num - 1) * 10 + serial_num
+        if title > last_feedback_num:
+            title = last_feedback_num + 1
+        else:
+            await update_feedbacks_order(file_list, title)
+    else:
+        title = last_feedback_num + 1
+    return title
+
+
+@router.callback_query(F.data.split(":")[0] == f"create_feedback")
+async def create_feedback(callback: CallbackQuery, state: FSMContext):
+    category = callback.data.split(":")[1]
+    text = [
+        "Чтобы создать отзыв, отправьте фото или видео следующим сообщением",
+        "В подписи укажите порядковый номер в виде пачка-номер, к примеру, 1-3",
+        "Если такого порядка не существует, отзыв добавится последним",
+        "Если хотите добавить последней, оставьте подпись пустой"
+    ]
+    kb = inline_kb.back_btn(cb_data=f"edit_feedbacks:{category}:1")
+    await state.set_state(AdminFSM.create_feedback)
+    await state.set_data({"category": category})
+    await callback.message.answer("\n".join(text), reply_markup=kb)
+
+
+@router.message(AdminFSM.create_feedback)
+async def new_feedback(message: Message, state: FSMContext):
+    if message.content_type in ["video", "photo"]:
+        state_data = await state.get_data()
+        category = state_data["category"]
+        file_list = await StaticsDAO.get_order_list(category=category, like="")
+        file_list = sort_feedbacks(file_list)
+
+        last_feedback_num = int(
+            file_list[-1]["title"].replace("video", "")) if file_list != [] else 0
+
+        title = await set_new_order(message, last_feedback_num, file_list)
+        if message.content_type == "video":
+            title = "video" + title
+            file_id = message.video.file_id
+        else:
+            file_id = message.photo[-1].file_id
+
+        await StaticsDAO.create(category=category, title=str(title), file_id=file_id)
+
+        user_id = message.from_user.id
+        next_page, pages_num = await feedbacks_media_group(1, category, user_id, is_admin=True)
+        kb = inline_kb.edit_feedbacks_category_kb(
+            1, category, pages_num, next_page)
+        text = "Для выбора отзыва, нажмите на его порядковый номер"
+        await state.clear()
+        await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
+    else:
+        await message.answer("Отправьте фото или видео")
+
+
+@router.callback_query(F.data.split(":")[0] == "edit_feedback")
+async def edit_feedback(callback: CallbackQuery):
+    id = int(callback.data.split(":")[1])
+    feedback = await StaticsDAO.get_one_or_none(id=id)
+    title = int(feedback["title"].replace("video", ""))
+    pack_num, serial_num = title // 11 + 1, title % 11
+    caption = f"Пачка {pack_num}, номер {serial_num}"
+
+    if feedback["title"].startswith("video"):
+        kb = inline_kb.edit_feedback_kb(
+            id=id, category=feedback["category"], content_type="видео")
+        await callback.message.answer_video(video=feedback["file_id"], caption=caption, reply_markup=kb)
+    else:
+        kb = inline_kb.edit_feedback_kb(
+            id=id, category=feedback["category"], content_type="фото")
+        await callback.message.answer_photo(photo=feedback["file_id"], caption=caption, reply_markup=kb)
+
+
+@router.callback_query(F.data.split(":")[0] == "delete_feedback")
+async def delete_feedback(callback: CallbackQuery):
+    id = int(callback.data.split(":")[1])
+    feedback = await StaticsDAO.get_one_or_none(id=id)
+    category = feedback["category"]
+    title = int(feedback["title"].replace("video", ""))
+    pack_num, serial_num = title // 11 + 1, title % 11
+    await StaticsDAO.delete(id=id)
+
+    file_list = await StaticsDAO.get_order_list(category=category, like="")
+    await update_feedbacks_order(file_list, title=title, is_delete=True)
+    await callback.message.answer(f"Отзыв пачка {pack_num}, номер {serial_num} удален")
+
+    user_id = callback.from_user.id
+    next_page, file_list = await feedbacks_media_group(1, category, user_id, is_admin=True)
+    kb = inline_kb.edit_feedbacks_category_kb(
+        1, category, file_list, next_page)
+    text = "Для выбора отзыва, нажмите на его порядковый номер" if file_list != [
+    ] else "В этой категории пока нет отзывов"
+    await callback.message.answer(text, reply_markup=kb)
+
+
+@router.callback_query(F.data.split(":")[0] == "change_feedback_order")
+async def change_feedback_order(callback: CallbackQuery, state: FSMContext):
+    id = int(callback.data.split(":")[1])
+    feedback = await StaticsDAO.get_one_or_none(id=id)
+    text = [
+        "Напишите порядковый номер в виде пачка-номер, к примеру, 1-3",
+        "Если такого порядка не существует, отзыв станет последним"
+    ]
+    await state.set_state(AdminFSM.feedback_new_order)
+    await state.set_data({"feedback": feedback})
+    await callback.message.answer("\n".join(text))
+
+
+@router.message(AdminFSM.feedback_new_order)
+async def feedback_new_order(message: Message, state: FSMContext):
+    state_data = await state.get_data()
+    feedback = state_data["feedback"]
+    category = feedback["category"]
+    file_list = await StaticsDAO.get_order_list(category=category, like="")
+    file_list = sort_feedbacks(file_list)
+
+    last_feedback_num = int(
+        file_list[-1]["title"].replace("video", "")) if file_list != [] else 0
+    title = await set_new_order(message, last_feedback_num, file_list)
+    title = str(title)
+    if feedback["title"].startswith("video"):
+        title = "video" + title
+    await StaticsDAO.update(id=feedback["id"], title=title)
 
 
 ##################

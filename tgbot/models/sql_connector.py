@@ -363,13 +363,6 @@ class StaticsDAO(BaseDAO):
     model = StaticsDB
 
     @classmethod
-    async def delete_all(cls):
-        async with async_session_maker() as session:
-            stmt = delete(cls.model)
-            await session.execute(stmt)
-            await session.commit()
-
-    @classmethod
     async def get_order_list(cls, category: str, like: str):
         async with async_session_maker() as session:
             query = select(cls.model.__table__.columns).filter_by(category=category).\
@@ -377,6 +370,13 @@ class StaticsDAO(BaseDAO):
                     cls.model.title.asc())
             result = await session.execute(query)
             return result.mappings().all()
+
+    @classmethod
+    async def update(cls, id: int, **data):
+        async with async_session_maker() as session:
+            stmt = update(cls.model).values(**data).filter_by(id=id)
+            await session.execute(stmt)
+            await session.commit()
 
 
 def status_translation(status):

@@ -119,10 +119,14 @@ class AdminInlineKeyboard:
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data="content_management"),
+                    text="Отзывы", callback_data="edit_feedbacks"),
                 InlineKeyboardButton(
                     text="Прайс лист", callback_data="edit_info_block:price_list"),
             ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Назад", callback_data="content_management"),
+            ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -153,6 +157,83 @@ class AdminInlineKeyboard:
                                   callback_data="edit_about_me:text")],
             [InlineKeyboardButton(
                 text="⬅️ Назад", callback_data="edit_info_blocks")],
+        ]
+        return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+    @classmethod
+    def edit_feedbacks_kb(cls):
+        keyboard = [
+            [InlineKeyboardButton(
+                text="Девушки - Био", callback_data="edit_feedbacks:feedback_girls_bio:1")],
+            [InlineKeyboardButton(
+                text="Девушки - Лазер", callback_data="edit_feedbacks:feedback_girls_laser:1")],
+            [InlineKeyboardButton(
+                text="Мужчины", callback_data="edit_feedbacks:feedback_boys:1")],
+            [InlineKeyboardButton(
+                text="⬅️ Назад", callback_data="edit_info_blocks")],
+        ]
+        return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+    @classmethod
+    def edit_feedbacks_category_kb(cls, page: int, category: str, file_list: list, next_page: int):
+        keyboard = []
+        if file_list != []:
+            def create_button(x, file_list, page):
+                return InlineKeyboardButton(
+                    text=x,
+                    callback_data=f"edit_feedback:{file_list[x-1]['id']}"
+                )
+
+            def create_buttons(start, end, file_list, page):
+                return [create_button(x, file_list, page) for x in range(start, end)]
+
+            if len(file_list) >= 8:
+                mid = len(file_list) // 2 + 1
+                first = create_buttons(1, mid, file_list, page)
+                second = create_buttons(
+                    mid, len(file_list) + 1, file_list, page)
+                keyboard.extend([first, second])
+            else:
+                pages = create_buttons(1, len(file_list) + 1, file_list, page)
+                keyboard.append(pages)
+
+        if page - 1 > 0 or next_page != 0:
+            pagination = []
+            if page - 1 > 0:
+                pagination.append(
+                    InlineKeyboardButton(
+                        text="⬅️", callback_data=f"edit_feedbacks:{category}:{page-1}")
+                )
+            if next_page != 0:
+                pagination.append(
+                    InlineKeyboardButton(
+                        text="➡️", callback_data=f"edit_feedbacks:{category}:{next_page}")
+                )
+            keyboard.append(pagination)
+
+        keyboard.append([
+            InlineKeyboardButton(
+                text="⬅️ Назад", callback_data=f"edit_feedbacks"),
+            InlineKeyboardButton(
+                text="🆕 Добавить отзыв", callback_data=f"create_feedback:{category}"),
+        ])
+        return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+    @classmethod
+    def edit_feedback_kb(cls, id: int, category: str, content_type: str):
+        keyboard = [
+            [
+                InlineKeyboardButton(
+                    text=f"Изменить {content_type}", callback_data=f"change_feedback_file:{id}"),
+                InlineKeyboardButton(
+                    text="Изменить порядок", callback_data=f"change_feedback_order:{id}"),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="⬅️ Назад", callback_data=f"edit_feedbacks:{category}:1"),
+                InlineKeyboardButton(
+                    text="❌ Удалить", callback_data=f"delete_feedback:{id}"),
+            ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
@@ -673,10 +754,13 @@ class UserInlineKeyboard:
     def feedbacks_boys_kb(cls, page: str | int):
         keyboard = [
             [InlineKeyboardButton(
-                text="Читать ещё", callback_data=f"feedbacks_boys|page:{page}")],
-            [InlineKeyboardButton(
-                text="Отзывы от девушек 👩‍🦰", callback_data="feedbacks_girls")],
+                text="Отзывы от девушек 👩‍🦰", callback_data="feedbacks_girls")]
         ]
+        if page != 0:
+            keyboard.insert(0, [
+                InlineKeyboardButton(
+                    text="Читать ещё", callback_data=f"feedbacks_boys|page:{page}")
+            ])
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
@@ -685,12 +769,15 @@ class UserInlineKeyboard:
         other_category = "feedback_girls_bio" if category == "feedback_girls_laser" else "feedback_girls_laser"
         keyboard = [
             [InlineKeyboardButton(
-                text="Читать ещё", callback_data=f"{category}:{page}")],
-            [InlineKeyboardButton(
                 text=f"Смотреть отзывы о {category_text}", callback_data=f"{other_category}:1")],
             [InlineKeyboardButton(
                 text="Отзывы от мужчин 👨", callback_data="feedbacks_boys|page:start")],
         ]
+        if page != 0:
+            keyboard.insert(0, [
+                InlineKeyboardButton(
+                    text="Читать ещё", callback_data=f"{category}:{page}")
+            ])
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 

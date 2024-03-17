@@ -15,7 +15,6 @@ from tgbot.handlers.user.address_block import router as address_block
 from tgbot.handlers.user.about_me_block import router as about_me_block
 from tgbot.handlers.user.write_to_personal import router as write_to_personal
 from tgbot.handlers.echo import router as echo_router
-from tgbot.models.redis_connector import RedisConnector as rds
 
 from create_bot import bot, dp, scheduler, logger, register_global_middlewares, config
 from tgbot.misc.scheduler import HolidayScheduler
@@ -42,7 +41,6 @@ user_routers = [
 
 async def main():
     logger.info("Starting bot")
-    # rds.redis_start()
     dp.include_routers(
         *admin_routers,
         *user_routers,
@@ -50,8 +48,9 @@ async def main():
 
     try:
         scheduler.start()
-        holidays = [("new_year", datetime(2024, 1, 1)), ("23_february", datetime(
-            2024, 2, 23)), ("8_march", datetime(2024, 3, 8))]
+        next_year = datetime.now().year + 1
+        holidays = [("new_year", datetime(next_year, 1, 1)), ("23_february", datetime(
+            next_year, 2, 23)), ("8_march", datetime(next_year, 3, 8))]
         for auto_text, dtime in holidays:
             try:
                 await HolidayScheduler.create(auto_text, dtime)

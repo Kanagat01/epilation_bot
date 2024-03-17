@@ -18,6 +18,10 @@ class AdminFSM(StatesGroup):
 
     price_list_photo = State()
 
+    feedback_new_media = State()
+    feedback_new_order = State()
+    create_feedback = State()
+
     # necessary routine
     routine_reg_price = State()
     routine_reg_time = State()
