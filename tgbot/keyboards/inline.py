@@ -220,17 +220,17 @@ class AdminInlineKeyboard:
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def edit_feedback_kb(cls, id: int, category: str, content_type: str):
+    def edit_feedback_kb(cls, id: int, category: str, content_type: str, page: int):
         keyboard = [
             [
                 InlineKeyboardButton(
-                    text=f"Изменить {content_type}", callback_data=f"change_feedback_file:{id}"),
+                    text=f"Изменить {content_type}", callback_data=f"change_feedback_media:{id}"),
                 InlineKeyboardButton(
                     text="Изменить порядок", callback_data=f"change_feedback_order:{id}"),
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data=f"edit_feedbacks:{category}:1"),
+                    text="⬅️ Назад", callback_data=f"edit_feedbacks:{category}:{page}"),
                 InlineKeyboardButton(
                     text="❌ Удалить", callback_data=f"delete_feedback:{id}"),
             ]

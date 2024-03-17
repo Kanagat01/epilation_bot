@@ -599,34 +599,34 @@ async def edit_feedbacks_category(callback: CallbackQuery, state: FSMContext):
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
 
 
-async def update_feedbacks_order(file_list: list, title: int, is_delete=False):
-    for file in file_list[title-1::]:
-        if not is_delete:
-            title += 1
-        print(title, "id",  file["id"])
-        new_title = "video" + \
-            str(title) if file["title"].startswith("video") else str(title)
+def calculate_pack_and_order(num: int):
+    pack_num = (num - 1) // 10 + 1
+    order_num = num - (pack_num - 1) * 10
+    return pack_num, order_num
+
+
+async def update_feedbacks_order(file_list: list):
+    for idx, file in enumerate(file_list):
+        new_title = str(idx + 1)
+        if file["title"].startswith("video"):
+            new_title = "video" + new_title
         await StaticsDAO.update(id=file["id"], title=new_title)
-        if is_delete:
-            title += 1
 
 
 async def set_new_order(message: Message, last_feedback_num: int, file_list: list):
     if message.caption or message.text:
         try:
             data = message.caption if message.caption else message.text
-            pack_num, serial_num = map(int, data.split("-"))
-            if pack_num < 1 or serial_num < 1:
+            pack_num, order_num = map(int, data.split("-"))
+            if pack_num < 1 or order_num < 1:
                 raise ValueError("Неправильный порядоковый номер")
         except ValueError:
             await message.answer("Неправильный порядоковый номер. Укажите порядковый номер в виде пачка-номер, к примеру, 1-3")
             return
 
-        title = (pack_num - 1) * 10 + serial_num
-        if title > last_feedback_num:
+        title = (pack_num - 1) * 10 + order_num
+        if title >= last_feedback_num:
             title = last_feedback_num + 1
-        else:
-            await update_feedbacks_order(file_list, title)
     else:
         title = last_feedback_num + 1
     return title
@@ -658,19 +658,27 @@ async def new_feedback(message: Message, state: FSMContext):
         last_feedback_num = int(
             file_list[-1]["title"].replace("video", "")) if file_list != [] else 0
 
-        title = await set_new_order(message, last_feedback_num, file_list)
+        feedback_num = await set_new_order(message, last_feedback_num, file_list)
+        title = str(feedback_num)
         if message.content_type == "video":
             title = "video" + title
             file_id = message.video.file_id
         else:
             file_id = message.photo[-1].file_id
 
-        await StaticsDAO.create(category=category, title=str(title), file_id=file_id)
+        feedback = {"category": category, "title": title, "file_id": file_id}
+        await StaticsDAO.create(**feedback)
+        feedback = await StaticsDAO.get_one_or_none(**feedback)
+
+        if feedback_num < last_feedback_num:
+            file_list.insert(feedback_num - 1, feedback)
+            await update_feedbacks_order(file_list)
 
         user_id = message.from_user.id
-        next_page, pages_num = await feedbacks_media_group(1, category, user_id, is_admin=True)
+        page = feedback_num // 11 + 1
+        next_page, pages_num = await feedbacks_media_group(page, category, user_id, is_admin=True)
         kb = inline_kb.edit_feedbacks_category_kb(
-            1, category, pages_num, next_page)
+            page, category, pages_num, next_page)
         text = "Для выбора отзыва, нажмите на его порядковый номер"
         await state.clear()
         await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
@@ -683,16 +691,15 @@ async def edit_feedback(callback: CallbackQuery):
     id = int(callback.data.split(":")[1])
     feedback = await StaticsDAO.get_one_or_none(id=id)
     title = int(feedback["title"].replace("video", ""))
-    pack_num, serial_num = title // 11 + 1, title % 11
-    caption = f"Пачка {pack_num}, номер {serial_num}"
+    pack_num, order_num = calculate_pack_and_order(title)
+    caption = f"Пачка {pack_num}, номер {order_num}"
+    kb_data = {"id": id, "category": feedback["category"], "page": pack_num}
 
     if feedback["title"].startswith("video"):
-        kb = inline_kb.edit_feedback_kb(
-            id=id, category=feedback["category"], content_type="видео")
+        kb = inline_kb.edit_feedback_kb(content_type="видео", **kb_data)
         await callback.message.answer_video(video=feedback["file_id"], caption=caption, reply_markup=kb)
     else:
-        kb = inline_kb.edit_feedback_kb(
-            id=id, category=feedback["category"], content_type="фото")
+        kb = inline_kb.edit_feedback_kb(content_type="фото", **kb_data)
         await callback.message.answer_photo(photo=feedback["file_id"], caption=caption, reply_markup=kb)
 
 
@@ -702,17 +709,18 @@ async def delete_feedback(callback: CallbackQuery):
     feedback = await StaticsDAO.get_one_or_none(id=id)
     category = feedback["category"]
     title = int(feedback["title"].replace("video", ""))
-    pack_num, serial_num = title // 11 + 1, title % 11
+    pack_num, order_num = calculate_pack_and_order(title)
     await StaticsDAO.delete(id=id)
 
     file_list = await StaticsDAO.get_order_list(category=category, like="")
-    await update_feedbacks_order(file_list, title=title, is_delete=True)
-    await callback.message.answer(f"Отзыв пачка {pack_num}, номер {serial_num} удален")
+    await update_feedbacks_order(file_list)
+    await callback.message.answer(f"Отзыв пачка {pack_num}, номер {order_num} удален")
 
     user_id = callback.from_user.id
-    next_page, file_list = await feedbacks_media_group(1, category, user_id, is_admin=True)
+    page = len(file_list) // 10 + 1
+    next_page, file_list = await feedbacks_media_group(page, category, user_id, is_admin=True)
     kb = inline_kb.edit_feedbacks_category_kb(
-        1, category, file_list, next_page)
+        page, category, file_list, next_page)
     text = "Для выбора отзыва, нажмите на его порядковый номер" if file_list != [
     ] else "В этой категории пока нет отзывов"
     await callback.message.answer(text, reply_markup=kb)
@@ -726,26 +734,76 @@ async def change_feedback_order(callback: CallbackQuery, state: FSMContext):
         "Напишите порядковый номер в виде пачка-номер, к примеру, 1-3",
         "Если такого порядка не существует, отзыв станет последним"
     ]
-    await state.set_state(AdminFSM.feedback_new_order)
+    await state.set_state(AdminFSM.update_feedback_order)
     await state.set_data({"feedback": feedback})
     await callback.message.answer("\n".join(text))
 
 
-@router.message(AdminFSM.feedback_new_order)
-async def feedback_new_order(message: Message, state: FSMContext):
+@router.message(AdminFSM.update_feedback_order)
+async def update_feedback_order(message: Message, state: FSMContext):
     state_data = await state.get_data()
     feedback = state_data["feedback"]
     category = feedback["category"]
+
     file_list = await StaticsDAO.get_order_list(category=category, like="")
     file_list = sort_feedbacks(file_list)
 
-    last_feedback_num = int(
-        file_list[-1]["title"].replace("video", "")) if file_list != [] else 0
-    title = await set_new_order(message, last_feedback_num, file_list)
-    title = str(title)
-    if feedback["title"].startswith("video"):
-        title = "video" + title
-    await StaticsDAO.update(id=feedback["id"], title=title)
+    last_feedback_num = int(file_list[-1]["title"].replace("video", ""))
+    feedback_num = await set_new_order(message, last_feedback_num, file_list)
+
+    file_list.remove(feedback)
+    if feedback_num < last_feedback_num:
+        file_list.insert(feedback_num - 1, feedback)
+    else:
+        feedback_num = last_feedback_num
+        file_list.append(feedback)
+
+    await update_feedbacks_order(file_list)
+
+    pack_num, order_num = calculate_pack_and_order(feedback_num)
+    await message.answer(f"Новый порядок: пачка {pack_num}, номер {order_num} задан")
+
+    user_id = message.from_user.id
+    next_page, file_list = await feedbacks_media_group(pack_num, category, user_id, is_admin=True)
+    kb = inline_kb.edit_feedbacks_category_kb(
+        pack_num, category, file_list, next_page)
+    text = "Для выбора отзыва, нажмите на его порядковый номер"
+    await message.answer(text, reply_markup=kb)
+
+
+@router.callback_query(F.data.split(":")[0] == "change_feedback_media")
+async def change_feedback_media(callback: CallbackQuery, state: FSMContext):
+    id = int(callback.data.split(":")[1])
+    await state.set_state(AdminFSM.update_feedback_media)
+    await state.set_data({"id": id})
+    await callback.message.answer("Отправьте видео или фото отзыва, следующим сообщением")
+
+
+@router.message(AdminFSM.update_feedback_media)
+async def update_feedback_media(message: Message, state: FSMContext):
+    state_data = await state.get_data()
+    id = state_data["id"]
+    if message.content_type == "video":
+        file_id = message.video.file_id
+    elif message.content_type == "photo":
+        file_id = message.photo[-1].file_id
+    else:
+        await message.answer("Отправьте фото или видео")
+        return
+
+    await StaticsDAO.update(id=id, file_id=file_id)
+    feedback = await StaticsDAO.get_one_or_none(id=id)
+    category = feedback["category"]
+    feedback_num = int(feedback["title"].replace("video", ""))
+    pack_num, order_num = calculate_pack_and_order(feedback_num)
+    await message.answer(f"Отзыв пачка {pack_num} номер {order_num} обновлен")
+
+    user_id = message.from_user.id
+    next_page, file_list = await feedbacks_media_group(pack_num, category, user_id, is_admin=True)
+    kb = inline_kb.edit_feedbacks_category_kb(
+        pack_num, category, file_list, next_page)
+    text = "Для выбора отзыва, нажмите на его порядковый номер"
+    await message.answer(text, reply_markup=kb)
 
 
 ##################
