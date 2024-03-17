@@ -318,9 +318,8 @@ class RegistrationsDAO(BaseDAO):
         async with async_session_maker() as session:
             today = datetime.now().date()
             current_time = datetime.now().time()
-            query = select(cls.model.__table__.columns).\
-                filter(cls.model.reg_date <= today).\
-                filter(cls.model.reg_time_start < current_time).\
+            query = select(cls.model.__table__.columns).filter(
+                or_(cls.model.reg_date < today, and_(cls.model.reg_date == today, cls.model.reg_time_start < current_time))).\
                 filter(cls.model.status.in_(
                     ["created", "moved", "blocked", "confirmation_sent", "approved"]))
             result = await session.execute(query)

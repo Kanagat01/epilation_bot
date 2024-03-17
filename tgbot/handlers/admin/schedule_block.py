@@ -13,6 +13,7 @@ from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
 from tgbot.handlers.admin.clients import export_to_csv
 from tgbot.calendar_api.calendar import *
+from tgbot.handlers.helpers import reset_state
 
 
 router = Router()
@@ -502,6 +503,7 @@ async def change_reg_id(message: Message, state: FSMContext):
             "Что с ней нужно сделать?"
         ]
         kb = inline_kb.change_reg_id_kb(cb_data)
+        await reset_state(state)
         await message.answer("\n".join(text), reply_markup=kb)
     else:
         text = "Нельзя изменить запись с таким номером"
@@ -522,6 +524,7 @@ async def back_to_change_reg_id(callback: CallbackQuery, state: FSMContext):
         "Что с ней нужно сделать?"
     ]
     kb = inline_kb.change_reg_id_kb(cb_data)
+    await reset_state(state)
     await callback.message.answer("\n".join(text), reply_markup=kb)
 
 

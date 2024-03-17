@@ -133,7 +133,7 @@ async def set_registration_price(message: Message, state: FSMContext):
     else:
         text = [
             "<s><b>Выбрана запись</b></s>",
-            f"<s><b>#{reg_id} {reg_date} {reg_time_start} {full_name}</b></s>\n",
+            f"<s><b>Запись #{reg_id} {reg_date} {reg_time_start} {full_name}</b></s>\n",
             "Если клиент не пришел, то нажмите соответствующую кнопку. Если",
             "клиент пришел - напишите цену, которую заплатил клиент. Без",
             'пробелов, знаков "р" и др, например "5000".',

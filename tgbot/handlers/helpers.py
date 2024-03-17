@@ -1,3 +1,4 @@
+from aiogram.fsm.context import FSMContext
 from create_bot import bot
 from tgbot.models.sql_connector import StaticsDAO
 
@@ -36,3 +37,9 @@ async def feedbacks_media_group(page: int, category: str, user_id: str | int, is
         return next_page, file_list[first_file:last_file]
     else:
         return next_page
+
+
+async def reset_state(state: FSMContext):
+    state_data = await state.get_data()
+    await state.clear()
+    await state.set_data(state_data)

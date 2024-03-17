@@ -329,7 +329,7 @@ class AdminInlineKeyboard:
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def client_kb(cls, page: int, have_regs: bool, prev: bool, next: bool):
+    def client_kb(cls, client_id: int, page: int, have_regs: bool, prev: bool, next: bool):
         keyboard = [
             [
                 InlineKeyboardButton(
@@ -348,7 +348,7 @@ class AdminInlineKeyboard:
         ]
         if have_regs:
             keyboard[2].append(InlineKeyboardButton(
-                text="Изменить запись на процедуру", callback_data="change_reg:back_to_client"))
+                text="Изменить запись на процедуру", callback_data=f"change_reg:back_to_client|{client_id}"))
         if prev:
             keyboard[0][0] = InlineKeyboardButton(
                 text="Предыдущие 10", callback_data=f"prev_regs:{page-1}")
@@ -360,7 +360,7 @@ class AdminInlineKeyboard:
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def add_reg_1_kb(cls):
+    def add_reg_1_kb(cls, client_id: int):
         keyboard = [
             [
                 InlineKeyboardButton(
@@ -368,31 +368,31 @@ class AdminInlineKeyboard:
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data="back_to_client"),
+                    text="⬅️ Назад", callback_data=f"back_to_client|{client_id}"),
                 InlineKeyboardButton(
-                    text="Выбрать другие услуги", callback_data="create_reg")
+                    text="Выбрать другие услуги", callback_data=f"create_reg|{client_id}")
             ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def choose_gender_kb(cls):
+    def choose_gender_kb(cls, client_id: int):
         keyboard = [
             [
                 InlineKeyboardButton(
-                    text="Девушка", callback_data="reg_gender:girls"),
+                    text="Девушка", callback_data=f"reg_gender:girls"),
                 InlineKeyboardButton(
-                    text="Мужчина", callback_data="reg_gender:boys")
+                    text="Мужчина", callback_data=f"reg_gender:boys")
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data="back_to_client")
+                    text="⬅️ Назад", callback_data=f"back_to_client|{client_id}")
             ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def choose_epilation_type_kb(cls, gender):
+    def choose_epilation_type_kb(cls, client_id, gender):
         keyboard = [
             [
                 InlineKeyboardButton(
@@ -402,13 +402,13 @@ class AdminInlineKeyboard:
             ],
             [
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data="create_reg")
+                    text="⬅️ Назад", callback_data=f"create_reg|{client_id}")
             ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def choose_services(cls, services, selected_services, gender):
+    def choose_services(cls, services, gender, selected_services=[]):
         def inline_btn(service, idx):
             return InlineKeyboardButton(text=f"{service['title']} {'✅' if services[idx] in selected_services else ''}",
                                         callback_data=f"select_service:{idx}")
@@ -434,11 +434,11 @@ class AdminInlineKeyboard:
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def edit_client_kb(cls, user_id):
+    def edit_client_kb(cls, user_id, client_id):
         keyboard = [
             [
                 InlineKeyboardButton(
-                    text="⬅️ Назад", callback_data="back_to_client"),
+                    text="⬅️ Назад", callback_data=f"back_to_client|{client_id}"),
                 InlineKeyboardButton(
                     text="Изменить Фамилию и имя", callback_data=f"change_full_name")
             ],

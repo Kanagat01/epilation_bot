@@ -251,8 +251,11 @@ async def client_text_and_kb(client, page=0):
         ])
     prev = page > 0
     next = end_idx < len(registrations) if end_idx else False
-    kb = inline_kb.client_kb(page=page, have_regs=len(registrations) > 0, prev=prev,
-                             next=next)
+    kb_kwargs = {
+        "client_id": client["id"], "page": page,
+        "have_regs": len(registrations) > 0, "prev": prev, "next": next
+    }
+    kb = inline_kb.client_kb(**kb_kwargs)
     return text, kb
 
 
@@ -283,11 +286,12 @@ async def find_client(message: Message, state: FSMContext):
             await message.answer("Клиентов с таким ФИО не найдено. Убедитесь что сперва написали имя и затем фамилию.")
 
 
-@router.callback_query(F.data == "back_to_client")
+@router.callback_query(F.data.split("|")[0] == "back_to_client")
 async def back_to_client(callback: CallbackQuery, state: FSMContext):
-    state_data = await state.get_data()
-    client = state_data["client"]
+    id = int(callback.data.split("|")[1])
+    client = await ClientsDAO.get_one_or_none(id=id)
     text, kb = await client_text_and_kb(client)
+    await state.clear()
     await callback.message.answer("\n".join(text), reply_markup=kb)
 
 
@@ -383,7 +387,8 @@ async def edit_client_text_and_kb(client):
             f"Время процедур - {client['service_duration']} минут (вручную)",
             f"Комментарий мастера: {client['note']}"
         ])
-    kb = inline_kb.edit_client_kb(user_id=client["user_id"])
+    kb = inline_kb.edit_client_kb(
+        user_id=client["user_id"], client_id=client["id"])
     return text, kb
 
 
@@ -600,40 +605,34 @@ async def add_reg(callback: CallbackQuery, state: FSMContext):
             "Повторить запись?"
         ]
         await state.update_data({"callback_data": callback.data, "selected_services": selected_services, "category": reg_category})
-        kb = inline_kb.add_reg_1_kb()
+        kb = inline_kb.add_reg_1_kb(client_id=client["id"])
         await callback.message.answer("\n".join(text), reply_markup=kb)
     else:
-        text, kb = await choose_gender_text_and_kb()
+        text, kb = await choose_gender_text_and_kb(client["id"])
         await callback.message.answer("\n".join(text), reply_markup=kb)
 
 
-async def choose_gender_text_and_kb():
+async def choose_gender_text_and_kb(client_id: int):
     text = ["Клиент хочет записать девушку или мужчину?"]
-    kb = inline_kb.choose_gender_kb()
+    kb = inline_kb.choose_gender_kb(client_id)
     return text, kb
 
 
-@router.callback_query(F.data == "create_reg")
+@router.callback_query(F.data.split("|")[0] == "create_reg")
 async def choose_gender(callback: CallbackQuery):
-    text, kb = await choose_gender_text_and_kb()
+    client_id = callback.data.split("|")[1]
+    text, kb = await choose_gender_text_and_kb(client_id)
     await callback.message.answer("\n".join(text), reply_markup=kb)
 
 
 @router.callback_query(F.data.split(":")[0] == "reg_gender")
-async def choose_epilation_type(callback: CallbackQuery):
+async def choose_epilation_type(callback: CallbackQuery, state: FSMContext):
     gender = callback.data.split(":")[1]
     text = f"Выберите тип эпиляции для {gender_translation(gender)}"
-    kb = inline_kb.choose_epilation_type_kb(gender)
+    state_data = await state.get_data()
+    client_id = state_data["client"]["id"]
+    kb = inline_kb.choose_epilation_type_kb(gender, client_id)
     await callback.message.answer(text, reply_markup=kb)
-
-
-async def choose_services_text_and_kb(services: list, category: str, gender: str, selected_services=[]):
-    kb = inline_kb.choose_services(services, selected_services, gender)
-    text = [
-        f"Выбранный вид эпиляции: {category_translation(category)}",
-        "Выберите зоны эпиляции:"
-    ]
-    return text, kb
 
 
 @router.callback_query(F.data.split(":")[0] == "epilation_type")
@@ -641,14 +640,17 @@ async def choose_services(callback: CallbackQuery, state: FSMContext):
     _, category, gender = callback.data.split(":")
     services = await ServicesDAO.get_many(category=category, gender=gender)
     await state.update_data({"category": category, "gender": gender, "services": services, "selected_services": []})
-    text, kb = await choose_services_text_and_kb(services, category, gender)
+    kb = inline_kb.choose_services(services, gender)
+    text = [
+        f"Выбранный вид эпиляции: {category_translation(category)}",
+        "Выберите зоны эпиляции:"
+    ]
     await callback.message.answer("\n".join(text), reply_markup=kb)
 
 
 @router.callback_query(F.data.split(":")[0] == "select_service")
 async def select_service(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
-    category = state_data["category"]
     gender = state_data["gender"]
     services = state_data["services"]
     selected_services = state_data["selected_services"] if "selected_services" in state_data else [
