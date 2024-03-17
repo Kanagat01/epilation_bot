@@ -71,7 +71,7 @@ async def check_user(user_id: str | int):
 
 
 async def is_created_reg(user_id: str | int, user: dict, reg_profile: dict):
-    full_name = f'{user["first_name"]} {user["last_name"]}'
+    first_name = user["first_name"]
     reg_date = reg_profile["reg_date"].strftime("%d-%m-%Y")
     reg_time = reg_profile["reg_time_start"].strftime("%H:%M")
     total_price = reg_profile["total_price"]
@@ -80,7 +80,7 @@ async def is_created_reg(user_id: str | int, user: dict, reg_profile: dict):
         service = await ServicesDAO.get_one_or_none(id=id)
         services.append(service["title"])
     services = "\n".join(services)
-    text = f"👋🏻Приветики, {full_name}! У тебя имеется запись на {reg_date} {reg_time} на следующие процедуры: {services}.\nСумма к оплате: {total_price}р.\nХорошего дня и отличного настроения!🌼"
+    text = f"👋🏻Приветики, {first_name}! У тебя имеется запись на {reg_date} {reg_time} на следующие процедуры: {services}.\nСумма к оплате: {total_price}р.\nХорошего дня и отличного настроения!🌼"
     kb = UserSignUpInline.created_reg_kb(reg_profile["id"])
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
 
@@ -90,10 +90,10 @@ async def cancel_or_move_reg(callback: CallbackQuery):
     reg_id = callback.data.split(":")[1]
     finished_regs = await RegistrationsDAO.get_by_user_id(user_id=str(callback.from_user.id), finished=True)
     client = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
-    full_name = f'{client["first_name"]} {client["last_name"]}'
+    first_name = client["first_name"]
     if len(finished_regs) == 0:
         text = [
-            f'Приветствую, {full_name}!',
+            f'Приветствую, {first_name}!',
             "Получила от вас просьбу об отмене 😔 записи. Надеюсь,🤞🏻 у вас",
             "всё хорошо, просто поменялись планы. С радостью перенесу",
             "запись на ближайшую неделю с сохранением аванса💰, но при",
@@ -104,7 +104,7 @@ async def cancel_or_move_reg(callback: CallbackQuery):
         ]
     else:
         text = [
-            f'Добрый день, {full_name}!',
+            f'Добрый день, {first_name}!',
             "Получила от вас просьбу об отмене ❌ записи, надеюсь,🤞🏻 у тебя",
             "всё хорошо, просто поменялись планы. Буду ждать от тебя новостей",
             "о новой записи или перенести ⏭ твою запись прямо сейчас?",
@@ -512,7 +512,8 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
     user_id = str(callback.from_user.id)
     user = await ClientsDAO.get_one_or_none(user_id=user_id)
     if user:
-        full_name = f'{user["first_name"]} {user["last_name"]}'
+        first_name = user["first_name"]
+        full_name = f'{first_name} {user["last_name"]}'
         phone = user["phone"]
     else:
         return
@@ -556,7 +557,7 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
             service_text.append(service["title"])
         service_text = ", ".join(service_text)
         text = [
-            f"👋🏻Приветики, {full_name}! Записала тебя на {reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')} ",
+            f"👋🏻Приветики, {first_name}! Записала тебя на {reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')} ",
             f"на следующие процедуры: {service_text}.",
             f"Сумма к оплате: {price} ₽.",
             "Хорошего дня и отличного настроения!🌼"
@@ -590,7 +591,7 @@ async def finish_reg(message: Message, state: FSMContext):
 
 async def check_birthday(user_id: str | int, state: FSMContext):
     user = await ClientsDAO.get_one_or_none(user_id=str(user_id))
-    birthday = user["birthday"]
+    birthday: datetime = user["birthday"]
     if birthday:
         birthday_str = birthday.strftime("%d.%m.%Y")
         if birthday_str != "01.01.1900":
@@ -598,6 +599,8 @@ async def check_birthday(user_id: str | int, state: FSMContext):
             job = scheduler.get_job(job_id)
             if not job:
                 week_before = birthday - timedelta(days=7)
+                week_before = week_before.replace(hour=11, minute=0)
+                birthday = birthday.replace(hour=11, minute=0)
                 await HolidayScheduler.create("1week_before_birthday", week_before)
                 await HolidayScheduler.create("at_birthday", birthday)
         await resource_menu(user_id=user_id)

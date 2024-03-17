@@ -51,7 +51,7 @@ class ServicesDB(Base):
     # Время выполнения услуги в минутах
     duration = Column(Integer, nullable=False)
     status = Column(String, nullable=False, server_default="enabled")
-    ordering = Column(Integer, nullable=False, server_default="1")
+    ordering = Column(Integer, nullable=False)
 
 
 class ClientsDB(Base):
@@ -165,6 +165,15 @@ class ServicesDAO(BaseDAO):
     model = ServicesDB
 
     @classmethod
+    async def get_next_ordering(cls, category: str, gender: str):
+        async with async_session_maker() as session:
+            query = select(cls.model.__table__.columns).filter_by(category=category, gender=gender).order_by(
+                cls.model.ordering.desc())
+            result = await session.execute(query)
+            last_ordering = result.mappings().first()
+            return last_ordering.ordering + 1 if last_ordering else 1
+
+    @classmethod
     async def get_order_list(cls, **filter_by) -> list:
         async with async_session_maker() as session:
             query = select(cls.model.__table__.columns).filter_by(**filter_by).order_by(ServicesDB.ordering.asc(),
@@ -178,6 +187,14 @@ class ServicesDAO(BaseDAO):
             stmt = update(cls.model).values(data).filter_by(id=service_id)
             await session.execute(stmt)
             await session.commit()
+
+    @classmethod
+    async def get_many(cls, **filter_by) -> list:
+        async with async_session_maker() as session:
+            query = select(cls.model.__table__.columns).filter_by(
+                **filter_by).order_by(cls.model.ordering)
+            result = await session.execute(query)
+            return result.mappings().all()
 
 
 class ClientsDAO(BaseDAO):

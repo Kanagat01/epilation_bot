@@ -49,8 +49,9 @@ async def main():
     try:
         scheduler.start()
         next_year = datetime.now().year + 1
-        holidays = [("new_year", datetime(next_year, 1, 1)), ("23_february", datetime(
-            next_year, 2, 23)), ("8_march", datetime(next_year, 3, 8))]
+        hour = 11
+        holidays = [("new_year", datetime(next_year, 1, 1, hour)), ("23_february", datetime(
+            next_year, 2, 23, hour)), ("8_march", datetime(next_year, 3, 8, hour))]
         for auto_text, dtime in holidays:
             try:
                 await HolidayScheduler.create(auto_text, dtime)

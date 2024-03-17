@@ -63,8 +63,7 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
         auto_texts.append(("after_3h_bio", reg_datetime + timedelta(hours=3)))
 
     for auto_text, dtime in auto_texts:
-        pass
-        # await AutoTextScheduler.create(auto_text, user_id, dtime)
+        await AutoTextScheduler.create(auto_text, user_id, dtime)
 
     return registration["id"]
 

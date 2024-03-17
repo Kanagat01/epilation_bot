@@ -37,7 +37,7 @@ class UserMainMenu:
     async def menu_type(cls, user_id: str, state: FSMContext):
         user = await ClientsDAO.get_one_or_none(user_id=user_id)
         if user:
-            name = f'{user["first_name"]} {user["last_name"]}'
+            name = user["first_name"]
             finished_registrations = await RegistrationsDAO.get_many(user_id=user_id, status="finished")
             if len(finished_registrations) > 0:
                 await cls.current_clients_menu(user_id=user_id, name=name)

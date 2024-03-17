@@ -38,6 +38,15 @@ async def about_me_video(callback: CallbackQuery):
     await bot.answer_callback_query(callback.id)
 
 
+@router.message(F.text == "Написать отзыв")
+async def write_feedback(message: Message):
+    text = [
+        "Буду благодарна 😇 вашему отзыву:",
+        "https://yandex.ru/maps/org/ne_prosto_waxing/47348048631/reviews/"
+    ]
+    await message.answer("\n".join(text))
+
+
 async def girls_feedbacks_choice(user_id: int | str):
     text = "🙌  осталось выбрать о каком виде депиляции вы хотели бы почитать отзывы?"
     kb = inline_kb.feedbacks_categories_kb()
@@ -49,9 +58,9 @@ async def boys_feedback_render(user_id: str | int, page: int):
     next_page = await feedbacks_media_group(page, "feedback_boys", user_id)
     kb = inline_kb.feedbacks_boys_kb(page=next_page)
     if next_page != 0:
-        text = "Чтобы посмотреть больше отзывов, нажмите на кнопку \"Читать еще \""
+        text = 'Чтобы посмотреть больше отзывов, нажмите на кнопку "Читать ещё".'
     else:
-        text = "Отзывов больше нет"
+        text = "Пока это все отзывы, которые я выложила"
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
 
 

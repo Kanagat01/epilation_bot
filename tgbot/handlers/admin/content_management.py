@@ -46,25 +46,24 @@ async def refresh_static_file(
 
 @router.message(Command("refresh_static"))
 async def refresh_static(message: Message):
-    await message.delete()
     static_path = f"{os.getcwd()}/tgbot/static"
     directories = ["", "create_reg", "laser_boys",
                    "laser_girls", "bio_boys", "bio_girls"]
     for directory in directories:
         await StaticsDAO.delete(category=directory)
         file_list = []
-        for file_type in ["jpg", "jpeg", "png"]:
+        photo_types = ["jpg", "jpeg", "png"]
+        video_types = ["mp4", "mov"]
+        for file_type in [*photo_types, *video_types]:
             file_list.extend(
                 glob.glob(f"{static_path}/{directory}/*.{file_type}"))
         for file in file_list:
-            await refresh_static_file(category=directory, file_type="photo", file_name=file, chat_id=message.from_user.id)
-
-        file_list = []
-        for file_type in ["mp4", "mov", "MOV", "MP4"]:
-            file_list.extend(
-                glob.glob(f"{static_path}/{directory}/*.{file_type}"))
-        for file in file_list:
-            await refresh_static_file(category=directory, file_type="video", file_name=file, chat_id=message.from_user.id)
+            if file.split("\\")[-1].split(".")[1] in photo_types:
+                file_type = "photo"
+            else:
+                file_type = "video"
+            await refresh_static_file(category=directory, file_type=file_type, file_name=file, chat_id=message.from_user.id)
+    await message.answer("Загрузка статических файлов завершена")
 
 
 @router.callback_query(F.data == "content_management")
@@ -232,11 +231,13 @@ async def new_service(message: Message, state: FSMContext):
         state_data = await state.get_data()
         category = state_data["category"]
         gender = state_data["gender"]
-        await ServicesDAO.create(category=category, gender=gender, title=title, price=price, duration=duration)
-        services = await ServicesDAO.get_many(category=category, gender=gender)
+        kwargs = {"category": category, "gender": gender}
+        ordering = await ServicesDAO.get_next_ordering(**kwargs)
+        await ServicesDAO.create(title=title, price=price, duration=duration, ordering=ordering, **kwargs)
+        services = await ServicesDAO.get_many(**kwargs)
         text = "Текущие услуги в боте:"
         kb = inline_kb.services_kb(
-            services=services, category=category, gender=gender)
+            services=services, **kwargs)
         await state.set_state(AdminFSM.home)
     except (IndexError, ValueError):
         text = "Вы ввели данные в неверном формате"
@@ -683,7 +684,12 @@ async def new_feedback(message: Message, state: FSMContext):
         await state.clear()
         await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
     else:
-        await message.answer("Отправьте фото или видео")
+        text = [
+            "Ошибка. Отправьте фото или видео с подписью, ",
+            'например "1-5" для добавления в пачку 1 под номером 5, ',
+            "либо без подписи для добавления в конец последней пачки."
+        ]
+        await message.answer("".join(text))
 
 
 @router.callback_query(F.data.split(":")[0] == "edit_feedback")
@@ -788,7 +794,12 @@ async def update_feedback_media(message: Message, state: FSMContext):
     elif message.content_type == "photo":
         file_id = message.photo[-1].file_id
     else:
-        await message.answer("Отправьте фото или видео")
+        text = [
+            "Ошибка. Отправьте фото или видео с подписью, ",
+            'например "1-5" для добавления в пачку 1 под номером 5, ',
+            "либо без подписи для добавления в конец последней пачки."
+        ]
+        await message.answer("".join(text))
         return
 
     await StaticsDAO.update(id=id, file_id=file_id)

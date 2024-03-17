@@ -62,27 +62,27 @@ async def choice_gender(callback: CallbackQuery):
         if epil_type == "laser":
             if step == 1:
                 await laser_boys_1(user_id=callback.from_user.id)
-            if step == 2:
+            elif step == 2:
                 await laser_boys_2(user_id=callback.from_user.id)
-            if step == 3:
+            else:
                 await laser_boys_3(user_id=callback.from_user.id)
-        if epil_type == "bio":
+        else:
             if step == 1:
                 await bio_boys_1(user_id=callback.from_user.id)
-            if step == 2:
+            else:
                 await bio_boys_2(user_id=callback.from_user.id)
-    if gender == "girls":
+    else:
         if epil_type == "laser":
             if step == 1:
                 await laser_girls_1(user_id=callback.from_user.id)
-            if step == 2:
+            elif step == 2:
                 await laser_girls_2(user_id=callback.from_user.id)
-            if step == 3:
+            else:
                 await laser_girls_3(user_id=callback.from_user.id)
-        if epil_type == "bio":
+        else:
             if step == 1:
                 await bio_girls_1(user_id=callback.from_user.id)
-            if step == 2:
+            else:
                 await bio_girls_2(user_id=callback.from_user.id)
 
 
@@ -91,12 +91,11 @@ async def choice_gender(callback: CallbackQuery):
 
 
 async def laser_boys_1(user_id: str | int):
+    print("ska")
     no_photo = await StaticsDAO.get_one_or_none(title="no_photo")
     video = await StaticsDAO.get_one_or_none(category="laser_boys", title="video")
     photos = await StaticsDAO.get_order_list(category="laser_boys", like="about")
-    if not video:
-        await bot.send_photo(chat_id=user_id, photo=no_photo["file_id"])
-    else:
+    if video:
         await bot.send_video(chat_id=user_id, video=video["file_id"])
 
     media_group = []
@@ -106,7 +105,10 @@ async def laser_boys_1(user_id: str | int):
            "информацию, ответы на часто задаваемые вопросы, а так же как правильно подготовиться к процедуре.\n\nИ " \
            "самое важное - это ❗️❗️<b>ПРОТИВОПОКАЗАНИЯ</b>❗️❗️ с ними вам обязательно нужно ознакомиться!!"
     kb = UserAboutEpilationInline.laser_boys_1_kb()
-    await bot.send_media_group(chat_id=user_id, media=media_group)
+    if media_group != []:
+        await bot.send_media_group(chat_id=user_id, media=media_group)
+    else:
+        await bot.send_photo(chat_id=user_id, photo=no_photo["file_id"])
     await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
 
 
