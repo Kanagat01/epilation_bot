@@ -275,7 +275,7 @@ async def find_client(message: Message, state: FSMContext):
         try:
             first_name, last_name = message.text.split(" ")
         except ValueError:
-            await message.answer("Напишите имю и фамилию разделив через пробел")
+            await message.answer("Напишите имя и фамилию разделив через пробел")
             return
         client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
         if client:
@@ -631,16 +631,16 @@ async def choose_epilation_type(callback: CallbackQuery, state: FSMContext):
     text = f"Выберите тип эпиляции для {gender_translation(gender)}"
     state_data = await state.get_data()
     client_id = state_data["client"]["id"]
-    kb = inline_kb.choose_epilation_type_kb(gender, client_id)
+    kb = inline_kb.choose_epilation_type_kb(client_id=client_id, gender=gender)
     await callback.message.answer(text, reply_markup=kb)
 
 
 @router.callback_query(F.data.split(":")[0] == "epilation_type")
 async def choose_services(callback: CallbackQuery, state: FSMContext):
     _, category, gender = callback.data.split(":")
-    services = await ServicesDAO.get_many(category=category, gender=gender)
+    services = await ServicesDAO.get_order_list(gender=gender, category=category, status="enabled")
     await state.update_data({"category": category, "gender": gender, "services": services, "selected_services": []})
-    kb = inline_kb.choose_services(services, gender)
+    kb = inline_kb.choose_services(services=services, gender=gender)
     text = [
         f"Выбранный вид эпиляции: {category_translation(category)}",
         "Выберите зоны эпиляции:"
@@ -664,7 +664,8 @@ async def select_service(callback: CallbackQuery, state: FSMContext):
         selected_services.remove(service)
     await state.update_data({"selected_services": selected_services, "callback_data": callback.data})
 
-    kb = inline_kb.choose_services(services, selected_services, gender)
+    kb = inline_kb.choose_services(
+        services=services, selected_services=selected_services, gender=gender)
     await callback.message.edit_reply_markup(reply_markup=kb)
 
 

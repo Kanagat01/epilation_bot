@@ -267,7 +267,7 @@ async def block_date2(message: Message, state: FSMContext):
     if len(all_events) == 0:
         text = f"В диапазоне: {datetime1.strftime('%d.%m.%Y %H:%M')} - {datetime2.strftime('%d.%m.%Y %H:%M')} произведена блокировка времени для записи."
         await message.answer(text)
-
+        await state.clear()
         await create_block_events(message, datetime1, datetime2)
     else:
         regs = []
@@ -376,6 +376,7 @@ async def block_without_cancelling(callback: CallbackQuery, state: FSMContext):
         f'В диапазоне: {datetime1.strftime("%d.%m.%Y %H:%M")} - {datetime2.strftime("%d.%m.%Y %H:%M")} произведена',
         "блокировка времени для записи БЕЗ отмены записей клиентов."
     ]
+    await state.clear()
     await callback.message.answer("\n".join(text))
 
     current_date = datetime1.date()

@@ -146,10 +146,17 @@ async def correct_phone(callback: CallbackQuery, state: FSMContext):
 
 @router.message(F.text, UserFSM.first_name_reg)
 async def get_first_name(message: Message, state: FSMContext):
-    text = "Напишите, пожалуйста, свою Фамилию"
     await state.update_data(first_name=message.text)
-    await state.set_state(UserFSM.last_name_reg)
-    await message.answer(text)
+    state_data = await state.get_data()
+    if state_data["entry_point"] == "world":
+        text = "Выберите пол:"
+        kb = inline_kb.user_gender_kb()
+        await state.update_data(last_name="")
+        await message.answer(text, reply_markup=kb)
+    else:
+        text = "Напишите, пожалуйста, свою Фамилию"
+        await state.set_state(UserFSM.last_name_reg)
+        await message.answer(text)
 
 
 @router.message(F.text, UserFSM.last_name_reg)
@@ -162,13 +169,17 @@ async def get_last_name(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.split(":")[0] == "user_gender")
 async def get_user_gender(callback: CallbackQuery, state: FSMContext):
-    text = "Введите вашу дату рождения. Эти данные позволят мне присылать  вам бонусы в виде поздравления 🎁\nФормат: " \
-           "01.01.1980"
-    kb = inline_kb.user_birthday_kb()
+    state_data = await state.get_data()
     await state.update_data(gender=callback.data.split(":")[1])
-    await state.set_state(UserFSM.birthday_reg)
-    await callback.message.answer(text, reply_markup=kb)
-    await bot.answer_callback_query(callback.id)
+    if state_data["entry_point"] == "world":
+        await main_menu_clb(callback, state)
+    else:
+        text = "Введите вашу дату рождения. Эти данные позволят мне присылать  вам бонусы в виде поздравления 🎁\nФормат: " \
+            "01.01.1980"
+        kb = inline_kb.user_birthday_kb()
+        await state.set_state(UserFSM.birthday_reg)
+        await callback.message.answer(text, reply_markup=kb)
+        await bot.answer_callback_query(callback.id)
 
 
 @router.message(F.text, UserFSM.birthday_reg)

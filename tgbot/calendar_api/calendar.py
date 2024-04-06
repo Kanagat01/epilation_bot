@@ -3,7 +3,7 @@ from datetime import datetime as dt
 from datetime import time, date, datetime
 from typing import Union
 from googleapiclient.errors import HttpError
-from create_bot import local_tz, local_tz_obj, calendar_service
+from create_bot import local_tz, local_tz_obj, calendar_id, calendar_service
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, ServicesDAO, category_translation
 
 
@@ -16,7 +16,6 @@ def async_exception_handler_decorator(func):
     return wrapper
 
 
-calendar_id = "c79b40b7c6157dbcf51d9fcbefa713a4769450d11175231d4a06b0e22eca0236@group.calendar.google.com"
 tz = datetime.now(local_tz_obj).strftime('%z')
 
 
@@ -42,6 +41,9 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
     events = events_result.get("items", [])
     for event in events:
         event_name = event["summary"]
+        if event_name.startswith("❌"):
+            continue
+
         first_name, last_name = re.sub(
             r'[^\w\s]', '', event_name).split(" ")
 

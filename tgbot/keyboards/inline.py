@@ -410,7 +410,8 @@ class AdminInlineKeyboard:
     @classmethod
     def choose_services(cls, services, gender, selected_services=[]):
         def inline_btn(service, idx):
-            return InlineKeyboardButton(text=f"{service['title']} {'✅' if services[idx] in selected_services else ''}",
+            sign = '✅ ' if services[idx] in selected_services else ''
+            return InlineKeyboardButton(text=f"{sign}{service['title']}",
                                         callback_data=f"select_service:{idx}")
 
         keyboard = []
@@ -964,22 +965,22 @@ class UserSignUpInline:
             if 2 * i + 1 >= len(services):
                 text = services[2 * i]["title"]
                 service_id = services[2 * i]["id"]
-                sign = "✅" if service_id in ok_services else ""
+                sign = "✅ " if service_id in ok_services else ""
                 keyboard.append([InlineKeyboardButton(
-                    text=f"{text} {sign}", callback_data=f"switch_service:{service_id}")])
+                    text=f"{sign}{text}", callback_data=f"switch_service:{service_id}")])
             else:
                 text_1, text_2 = services[2 *
                                           i]["title"], services[2 * i + 1]["title"]
                 service_id_1, service_id_2 = services[2 *
                                                       i]["id"], services[2 * i + 1]["id"]
-                sign_1 = "✅" if service_id_1 in ok_services else ""
-                sign_2 = "✅" if service_id_2 in ok_services else ""
+                sign_1 = "✅ " if service_id_1 in ok_services else ""
+                sign_2 = "✅ " if service_id_2 in ok_services else ""
                 keyboard.append(
                     [
                         InlineKeyboardButton(
-                            text=f"{text_1} {sign_1}", callback_data=f"switch_service:{service_id_1}"),
+                            text=f"{sign_1}{text_1}", callback_data=f"switch_service:{service_id_1}"),
                         InlineKeyboardButton(
-                            text=f"{text_2} {sign_2}", callback_data=f"switch_service:{service_id_2}"),
+                            text=f"{sign_2}{text_2}", callback_data=f"switch_service:{service_id_2}"),
                     ]
                 )
         back_and_forth = [

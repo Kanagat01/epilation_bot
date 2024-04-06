@@ -63,4 +63,4 @@ venv.bak/
 .env
 
 static/
-epilation_bot_tasks.txt
+server.txt
