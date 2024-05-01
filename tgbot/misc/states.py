@@ -64,6 +64,7 @@ class UserFSM(StatesGroup):
 
     main_menu = State()
 
+    reg_date = State()
     reg_time = State()
     first_name_sign = State()
     last_name_sign = State()

@@ -23,9 +23,8 @@ storage = RedisStorage(redis=r) if config.tg_bot.use_redis else MemoryStorage()
 
 bot = Bot(token=config.tg_bot.token, parse_mode='HTML')
 dp = Dispatcher()
-payments_token = config.tg_bot.payments_token
-calendar_id = config.tg_bot.calendar_id
 
+calendar_id = config.tg_bot.calendar_id
 local_tz = 'Europe/Moscow'
 local_tz_obj = timezone(local_tz)
 scheduler = AsyncIOScheduler(timezone=local_tz_obj)

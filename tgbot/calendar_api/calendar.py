@@ -7,6 +7,18 @@ from create_bot import local_tz, local_tz_obj, calendar_id, calendar_service
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, ServicesDAO, category_translation
 
 
+def get_reg_datetime(event):
+    reg_date_str = event["start"]["dateTime"].split('T')[0]
+    reg_date = dt.strptime(reg_date_str, "%Y-%m-%d").date()
+
+    time_start_str = event["start"]["dateTime"].split('T')[1][:5]
+    reg_time_start = dt.strptime(time_start_str, "%H:%M").time()
+
+    time_finish_str = event["end"]["dateTime"].split('T')[1][:5]
+    reg_time_finish = dt.strptime(time_finish_str, "%H:%M").time()
+    return {"reg_date": reg_date, "reg_time_start": reg_time_start, "reg_time_finish": reg_time_finish}
+
+
 def async_exception_handler_decorator(func):
     async def wrapper(*args, **kwargs):
         try:
@@ -42,6 +54,9 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
     for event in events:
         event_name = event["summary"]
         if event_name.startswith("❌"):
+            # reg_datetime = get_reg_datetime(event)
+            # registration = await RegistrationsDAO.get_one_or_none(**reg_datetime)
+            # event["summary"] = event_name + f" [{registration['id']}]"
             continue
 
         first_name, last_name = re.sub(
@@ -49,26 +64,16 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
 
         client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
         if client:
-            reg_date_str = event["start"]["dateTime"].split('T')[0]
-            reg_date = dt.strptime(reg_date_str, "%Y-%m-%d").date()
-
-            time_start_str = event["start"]["dateTime"].split('T')[1][:5]
-            reg_time_start = dt.strptime(time_start_str, "%H:%M").time()
-
-            time_finish_str = event["end"]["dateTime"].split('T')[1][:5]
-            reg_time_finish = dt.strptime(time_finish_str, "%H:%M").time()
-
             username = client["username"]
-            reg = await RegistrationsDAO.get_one_or_none(user_id=client["user_id"], reg_date=reg_date, reg_time_start=reg_time_start, reg_time_finish=reg_time_finish)
+            reg_datetime = get_reg_datetime(event)
+            reg = await RegistrationsDAO.get_one_or_none(user_id=client["user_id"], **reg_datetime)
             category = None
             services_text = []
             for service_id in reg["services"]:
                 service = await ServicesDAO.get_one_or_none(id=service_id)
-
                 if not category:
                     category = category_translation(service["category"])
                 services_text.append(service["title"])
-
             event["summary"] = f'{event_name} {username} - {category}: {", ".join(services_text)} [{reg["id"]}]'
     return events
 
@@ -78,8 +83,7 @@ async def update_event_name(event_name, event_date, start_time, end_time):
         return event_name
 
     event_name = re.sub(r'[^\w\s]', '', event_name)
-    dict1 = {"approved": "✅", "confirmation_sent": "⏳",
-             "new_client": "🆕", "advance": "✔️", "not_advance": "❓", "payment_not_work": "❗️"}
+    dict1 = {"approved": "✅", "confirmation_sent": "⏳", "new_client": "🆕"}
     first_name, last_name = event_name.split(" ")
     client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
     if client:
@@ -89,15 +93,6 @@ async def update_event_name(event_name, event_date, start_time, end_time):
         is_new_client = len(client_registrations) == 0
 
         if is_new_client:
-            if reg["advance"] == "not_required":
-                event_name = dict1["payment_not_work"] + event_name
-
-            elif reg["advance"] == "processing":
-                event_name = dict1["not_advance"] + event_name
-
-            elif reg["advance"] == "finished":
-                event_name = dict1["advance"] + event_name
-
             event_name = dict1["new_client"] + event_name
 
         if reg["status"] in ["approved", "confirmation_sent"]:
@@ -125,6 +120,15 @@ async def create_event(event_name: str, event_date: dt.date, start_time: dt.time
 
     event = calendar_service.events().insert(
         calendarId=calendar_id, body=event).execute()
+    # if event_name.startswith("❌"):
+    #     await RegistrationsDAO.create(
+    #         reg_date=event_date,
+    #         reg_time_start=start_time,
+    #         reg_time_finish=end_time,
+    #         status="blocked",
+    #         phone="",
+    #         user_id="",
+    #     )
     return event
 
 

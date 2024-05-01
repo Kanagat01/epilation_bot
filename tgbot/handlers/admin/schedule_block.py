@@ -163,9 +163,6 @@ async def symbols(callback: CallbackQuery):
         "✅ - Клиент подтвердил запись.",
         "⏳ - Клиенту выслан запрос на подтверждение, но он ещё не подтвердил запись.\n",
         "🆕 - Новый клиент (не был ещё ни на одном приёме)",
-        "✔️ - Новый клиент внёс предоплату за запись",
-        "❓ - Новый клиент ещё не внёс предоплату за запись",
-        "❗️ - Новый клиент, автоматическая проплата не прошла. Мастер вручную отметил, чтобы бот не отменял запись.\n",
         "➖ - Свободное время",
         "❌ - Заблокированное время (отпуск или по телефону записался новый клиент, у которого нет аккаунта в боте)"
     ]
@@ -630,23 +627,3 @@ async def cancel_reg_by_master(callback: CallbackQuery, state: FSMContext):
 
     text = f"Ваша запись на {reg_date} {reg_time_start} отменена мастером."
     await bot.send_message(reg["user_id"], text)
-
-
-@router.callback_query(F.data == "accept_without_advance")
-async def accept_without_advance(callback: CallbackQuery, state: FSMContext):
-    state_data = await state.get_data()
-    reg = state_data["reg"]
-    client = state_data["client"]
-    full_name = f'{client["first_name"]} {client["last_name"]}'
-    await RegistrationsDAO.update(reg_id=reg["id"], advance="not_required")
-    await delete_event_by_reg_id(reg["id"])
-    await create_event(full_name, reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
-
-    text = "Оксана подтвердила запись без необходимости вносить предоплату и будет ждать вас."
-    await bot.send_message(reg["user_id"], text)
-
-    cb_data = state_data["cb_data"].split(":")[1]
-    date = cb_data.split("|")[1]
-    schedule_date = dt.strptime(date, "%Y-%m-%d")
-    text, kb = await schedule_date_text_and_kb(schedule_date)
-    await callback.message.answer("\n".join(text), reply_markup=kb)

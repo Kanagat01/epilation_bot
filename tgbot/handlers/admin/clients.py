@@ -6,13 +6,14 @@ from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery, FSInputFile
 from aiogram.fsm.context import FSMContext
 
-from create_bot import bot
+from create_bot import bot, scheduler
 from tgbot.calendar_api.calendar import check_interval_for_events, get_events
 from tgbot.filters.admin import AdminFilter
 from tgbot.misc.registrations import create_registration
 from tgbot.models.sql_connector import RegistrationsDAO, ClientsDAO, ServicesDAO, TextsDAO, category_translation, gender_translation, status_translation
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
+from tgbot.misc.scheduler import HolidayScheduler
 
 router = Router()
 router.message.filter(AdminFilter())
@@ -67,7 +68,7 @@ async def clients_text_and_kb(page=0):
         clients_text.append(client_info)
 
     text = [
-        "Введите номер клиента для подробностей.",
+        "Введите имя и фамилию разделив через пробел ЛИБО номер клиента для подробностей.",
         "Клиенты:",
         "\n".join(clients_text)
     ]
@@ -169,7 +170,7 @@ async def export_to_csv_max(callback: CallbackQuery):
             f"Записи клиента {full_name if full_name != '' else client['username']}:"
         ], [
             'ID записи', 'Телефон', 'Дата записи', 'Время начала', 'Время окончания',
-            'Список услуг', 'Общая стоимость', 'Статус', 'Аванс'
+            'Список услуг', 'Общая стоимость', 'Статус'
         ]])
 
         client_registrations = await RegistrationsDAO.get_by_user_id(user_id=user_id)
@@ -188,8 +189,7 @@ async def export_to_csv_max(callback: CallbackQuery):
                     reg['reg_time_finish'],
                     ", ".join(reg_services),
                     reg['total_price'],
-                    status_translation(reg['status']),
-                    reg['advance']
+                    status_translation(reg['status'])
                 ]
                 data.append(registration_data)
         else:
@@ -261,7 +261,16 @@ async def client_text_and_kb(client, page=0):
 
 @router.message(AdminFSM.find_client)
 async def find_client(message: Message, state: FSMContext):
-    if message.text.startswith("+"):
+    if message.text.isdigit():
+        client = await ClientsDAO.get_one_or_none(id=int(message.text))
+        if client:
+            await state.set_data({"client": client})
+            text, kb = await client_text_and_kb(client)
+            await message.answer("\n".join(text), reply_markup=kb)
+        else:
+            await message.answer("Клиентов с таким номером не найдено")
+
+    elif message.text.startswith("+"):
         phone = message.text
         client = await ClientsDAO.get_one_or_none(phone=phone)
         if client:
@@ -275,7 +284,7 @@ async def find_client(message: Message, state: FSMContext):
         try:
             first_name, last_name = message.text.split(" ")
         except ValueError:
-            await message.answer("Напишите имя и фамилию разделив через пробел")
+            await message.answer("Напишите имя и фамилию разделив через пробел ЛИБО номер клиента")
             return
         client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
         if client:
@@ -326,7 +335,7 @@ async def export_client_to_csv(callback: CallbackQuery, state: FSMContext):
     client_regs = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"])
     if len(client_regs) > 0:
         data.append(["id", "Дата записи", "Время начала", "Время окончания",
-                    "Список услуг", "Общая Сумма", "Статус", "Источник", "Аванс"])
+                    "Список услуг", "Общая Сумма", "Статус", "Источник"])
         for reg in client_regs:
             reg_services = []
             for service_id in reg['services']:
@@ -342,8 +351,7 @@ async def export_client_to_csv(callback: CallbackQuery, state: FSMContext):
                 ", ".join(reg_services),
                 reg['total_price'],
                 status_translation(reg['status']),
-                reg['resource'],
-                reg['advance']
+                reg['resource']
             ]
             data.append(registration_data)
     else:
@@ -543,6 +551,14 @@ async def set_client_birthday(message: Message, state: FSMContext):
         birthday = datetime.strptime(
             message.text, "%d.%m.%Y")
         await ClientsDAO.update(user_id=user_id, birthday=birthday)
+        job_id = "at_birthday" + birthday + "_holiday"
+        job = scheduler.get_job(job_id)
+        if not job:
+            week_before = birthday - timedelta(days=7)
+            week_before = week_before.replace(hour=11, minute=0)
+            birthday = birthday.replace(hour=11, minute=0)
+            await HolidayScheduler.create("1week_before_birthday", week_before)
+            await HolidayScheduler.create("at_birthday", birthday)
         await message.answer("Дата рождения изменена")
 
         client = await ClientsDAO.get_one_or_none(user_id=user_id)

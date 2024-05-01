@@ -101,8 +101,6 @@ class RegistrationsDB(Base):
     total_price = Column(Integer, nullable=True)
     # created no_show cancelled cancelled_by_master finished moved blocked confirmation_sent approved
     status = Column(String, nullable=False, default="created")
-    # not_required processing finished
-    advance = Column(String, nullable=False, default="not_required")
 
 
 class StaticsDB(Base):

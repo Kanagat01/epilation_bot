@@ -21,7 +21,6 @@ class RedisConfig:
 @dataclass
 class TgBot:
     token: str
-    payments_token: str
     calendar_id: str
     admin_ids: list[int]
     use_redis: bool
@@ -47,7 +46,6 @@ def load_config(path: str = None):
     return Config(
         tg_bot=TgBot(
             token=env.str("BOT_TOKEN"),
-            payments_token=env.str("PAYMENTS_TOKEN"),
             calendar_id=env.str("CALENDAR_ID"),
             admin_ids=list(map(int, env.list("ADMINS"))),
             use_redis=env.bool("USE_REDIS"),

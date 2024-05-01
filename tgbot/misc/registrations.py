@@ -6,11 +6,11 @@ from aiogram.fsm.storage.base import StorageKey
 from create_bot import bot, dp
 from tgbot.handlers.user.registration_block import UserMainMenu
 from tgbot.misc.scheduler import AutoTextScheduler
-from tgbot.models.sql_connector import ClientsDAO, MailingsDAO, RegistrationsDAO, ServicesDAO
+from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, ServicesDAO
 from tgbot.calendar_api.calendar import create_event, delete_event_by_reg_id
 
 
-async def create_registration(data: dict, phone: str, user_id: str | int, client_service_duration=None, advance="not_required") -> int:
+async def create_registration(data: dict, phone: str, user_id: str | int, client_service_duration=None) -> int:
     start_time = data["reg_time"]
     if client_service_duration:
         finish_time = (datetime.combine(datetime.today(), start_time) +
@@ -30,8 +30,7 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
         services=services_ids,
         total_price=data["price"],
         phone=phone,
-        user_id=str(user_id),
-        advance=advance
+        user_id=str(user_id)
     )
     client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
     await create_event(f'{client["first_name"]} {client["last_name"]}', data["reg_date"], start_time, finish_time)
@@ -50,20 +49,16 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
     ]
 
     finished_regs = await RegistrationsDAO.get_many(user_id=str(user_id), status="finished")
-    if len(finished_regs) > 0:
-        auto_texts.append(("before_24h_old", reg_datetime - timedelta(days=1)))
-    else:
-        auto_texts.append(("before_24h_new", reg_datetime - timedelta(days=1)))
+    auto_texts.append(
+        (f"before_24h_{'old' if len(finished_regs) > 0 else 'new'}", reg_datetime - timedelta(days=1)))
 
     service = await ServicesDAO.get_one_or_none(id=services_ids[0])
-    if service["category"] == "laser":
-        auto_texts.append(
-            ("after_3h_laser", reg_datetime + timedelta(hours=3)))
-    else:
-        auto_texts.append(("after_3h_bio", reg_datetime + timedelta(hours=3)))
+    auto_texts.append(
+        (f"after_3h_{'laser' if service['category'] == 'laser' else 'bio'}", reg_datetime + timedelta(hours=3)))
 
     for auto_text, dtime in auto_texts:
-        await AutoTextScheduler.create(auto_text, user_id, dtime)
+        if dtime > datetime.now():
+            await AutoTextScheduler.create(auto_text, user_id, dtime)
 
     return registration["id"]
 

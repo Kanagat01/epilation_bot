@@ -641,8 +641,6 @@ class AdminInlineKeyboard:
             ],
             [
                 InlineKeyboardButton(text="⬅️ Назад", callback_data=cb_data),
-                InlineKeyboardButton(
-                    text="Принять без предоплаты", callback_data="accept_without_advance")
             ]
         ]
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
@@ -1133,10 +1131,8 @@ class UserSignUpInline:
         return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
     @classmethod
-    def pay_advance_kb(cls, reg_id: int):
+    def after_reg_kb(cls, reg_id: int):
         keyboard = [
-            [InlineKeyboardButton(text="Оплатить 500р.✅",
-                                  callback_data=f"pay_advance:{reg_id}")],
             [
                 InlineKeyboardButton(
                     text="Отменить запись ❌", callback_data=f"cancel_reg:{reg_id}"),

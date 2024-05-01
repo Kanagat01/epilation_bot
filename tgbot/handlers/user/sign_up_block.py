@@ -5,13 +5,12 @@ from typing import Literal
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
-from aiogram.types import Message, CallbackQuery, PreCheckoutQuery
-from aiogram.types.labeled_price import LabeledPrice
+from aiogram.types import Message, CallbackQuery
 
-from create_bot import bot, scheduler, payments_token
+from create_bot import bot, scheduler
 from tgbot.calendar_api.calendar import create_event, delete_event_by_reg_id
 from tgbot.misc.registrations import cancel_registration, create_registration
-from tgbot.misc.scheduler import HolidayScheduler, PayRegistration2HoursScheduler
+from tgbot.misc.scheduler import HolidayScheduler
 from tgbot.misc.states import UserFSM
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, StaticsDAO, ServicesDAO, category_translation
 from tgbot.keyboards.inline import UserSignUpInline
@@ -95,9 +94,7 @@ async def cancel_or_move_reg(callback: CallbackQuery):
         text = [
             f'Приветствую, {first_name}!',
             "Получила от вас просьбу об отмене 😔 записи. Надеюсь,🤞🏻 у вас",
-            "всё хорошо, просто поменялись планы. С радостью перенесу",
-            "запись на ближайшую неделю с сохранением аванса💰, но при",
-            "переносе больше чем один раз аванс сгорает. ☠️\n",
+            "всё хорошо, просто поменялись планы. С радостью перенесу запись на ближайшую неделю.",
             "❗При отмене записи 3 раза подряд, бот заблокирует ⛔ возможность он-лайн записи.\n",
             "Но вы сможете записаться лично через меня. Давайте уважать время друг друга 🤗 и взаимодействовать эффективно.",
             "Хорошего дня и отличного настроения!💐"
@@ -108,7 +105,6 @@ async def cancel_or_move_reg(callback: CallbackQuery):
             "Получила от вас просьбу об отмене ❌ записи, надеюсь,🤞🏻 у тебя",
             "всё хорошо, просто поменялись планы. Буду ждать от тебя новостей",
             "о новой записи или перенести ⏭ твою запись прямо сейчас?",
-            "переносе больше чем один раз аванс сгорает. ☠️\n",
             "❗При отмене записи 3 раза подряд, бот заблокирует ⛔ возможность он-лайн записи.\n",
             "Но вы сможете записаться лично через меня.",
             "Хорошего дня и отличного настроения!💐"
@@ -157,6 +153,7 @@ async def finished_reg(callback: CallbackQuery):
 async def is_finished_reg(user_id: str | int, reg_type: str):
     user_id = str(user_id)
     reg_status = "moved" if reg_type == "move_reg" else "finished"
+    client = await ClientsDAO.get_one_or_none(user_id=user_id)
     regs = await RegistrationsDAO.get_last_4_ordering(user_id)
     last_reg = None
     for reg in regs:
@@ -165,7 +162,7 @@ async def is_finished_reg(user_id: str | int, reg_type: str):
             break
 
     services_text = []
-    duration = 0
+    duration = client["service_duration"] if client["service_duration"] else 0
     price = 0
     category = None
 
@@ -174,7 +171,8 @@ async def is_finished_reg(user_id: str | int, reg_type: str):
         if not category:
             category = category_translation(service["category"])
         services_text.append(service["title"])
-        duration += service["duration"]
+        if not client["service_duration"]:
+            duration += service["duration"]
         price += service["price"]
 
     text = [
@@ -226,6 +224,7 @@ async def create_reg_user(callback: CallbackQuery):
 
 
 async def no_finished_reg(user_id: str | int, greeting: bool):
+    await ClientsDAO.update(user_id=str(user_id), service_duration=None)
     text = "Я очень рада, что Вы выбрали меня! 🤗\nВаша процедура пройдет на высшем уровне 🔝, гарантирую!\nТак же на " \
            "первое посещение у вас будет 🎁бонус - 30% (на одну из зон)\nПри бронировании будет указана полная " \
            "💯стоимость, но не переживайте, на месте я все пересчитаю и ваша сумма станет на 30% меньше🌻"
@@ -367,11 +366,19 @@ async def select_data(callback: CallbackQuery, state: FSMContext):
         *services_text,
         f"Общее примерное время процедур: {duration_str}",
         f"Стоимость: {price}р.",
-        "Выберите желаемую дату для записи📝:"
+        "Выберите желаемую дату для записи (формат 01.05) 📝:"
     ]
+
+    client = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
+    client_duration = client["service_duration"]
+    if client_duration:
+        text.insert(-2,
+                    f"Индивидуальное фактическое время процедур: {client_duration // 60}ч {client_duration % 60}мин")
+
     back_data = "main_menu_c_accept" if reg_type == "new_reg" else "finished_reg"
     kb = UserSignUpInline.choose_date_kb(
         date_list=days_list, back_data=back_data, offset=offset)
+    await state.set_state(UserFSM.reg_date)
     await callback.message.answer("\n".join(text), reply_markup=kb)
     await bot.answer_callback_query(callback.id)
 
@@ -413,6 +420,11 @@ async def select_time(callback: CallbackQuery, state: FSMContext):
         "учетом выбранных вами услуг 😊",
         "2) Напишите желаемое точное время в формате 11:00, и бот проверит наличие этого времени."
     ]
+    client = await ClientsDAO.get_one_or_none(user_id=str(callback.from_user.id))
+    client_duration = client["service_duration"]
+    if client_duration:
+        text.insert(-6,
+                    f"Индивидуальное фактическое время процедур: {client_duration // 60}ч {client_duration % 60}мин")
     kb = UserSignUpInline.choose_time_kb(slots=slots_list)
     await state.update_data(reg_date=date)
     await state.set_state(UserFSM.reg_time)
@@ -438,8 +450,13 @@ async def finish_registration(user_id: str | int, state: FSMContext):
             f"Общее примерное время процедур: {duration_str}",
             f"Стоимость: {price}р.",
             f"Выбранная дата: {reg_date.strftime('%d.%m.%Y')}\n",
-            f"Выбранное время: {reg_time.strftime('%H.%M')}\n",
+            f"Выбранное время: {reg_time.strftime('%H:%M')}\n",
         ]
+        client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
+        client_duration = client["service_duration"]
+        if client_duration:
+            text.insert(-3,
+                        f"Индивидуальное фактическое время процедур: {client_duration // 60}ч {client_duration % 60}мин")
         text = "\n".join(text)
         kb = UserSignUpInline.finish_reg_accept_kb(date=reg_date)
     else:
@@ -459,7 +476,47 @@ async def finish_registration(user_id: str | int, state: FSMContext):
     await bot.send_message(chat_id=user_id, reply_markup=kb, text=text)
 
 
-@router.message(F.text, UserFSM.reg_time)
+@router.message(UserFSM.reg_date)
+async def select_date(message: Message, state: FSMContext):
+    try:
+        reg_date = datetime.strptime(
+            message.text, "%d.%m").date()
+        reg_date = reg_date.replace(year=datetime.now().year)
+    except ValueError:
+        await message.answer("Неверный формат. Напишите дату в формате 01.05")
+        return
+    state_data = await state.get_data()
+    duration = state_data["duration"]
+    category = state_data["category"]
+    price = state_data["price"]
+    services = state_data["services"]
+    slots_list = await time_three_slots_checker(date=reg_date, duration=duration)
+    services_text = services_text_render(services=services, category=category)
+    duration_str = f"{duration // 60}ч {duration % 60}мин"
+    text = [
+        "Выбранные вами процедуры:",
+        *services_text,
+        f"Общее примерное время процедур: {duration_str}",
+        f"Стоимость: {price}р.",
+        f"Выбранная дата: {reg_date.strftime('%d.%m.%Y')}\n",
+        "Выберите удобное для вас время 📝",
+        "✅Это можно сделать двумя способами:",
+        "1) Выберите доступный интервал (утро, день, вечер), и бот назначит время автоматически в рамках интервала с "
+        "учетом выбранных вами услуг 😊",
+        "2) Напишите желаемое точное время в формате 11:00, и бот проверит наличие этого времени."
+    ]
+    client = await ClientsDAO.get_one_or_none(user_id=str(message.from_user.id))
+    client_duration = client["service_duration"]
+    if client_duration:
+        text.insert(-6,
+                    f"Индивидуальное фактическое время процедур: {client_duration // 60}ч {client_duration % 60}мин")
+    kb = UserSignUpInline.choose_time_kb(slots=slots_list)
+    await state.update_data(reg_date=reg_date)
+    await state.set_state(UserFSM.reg_time)
+    await message.answer("\n".join(text), reply_markup=kb)
+
+
+@router.message(UserFSM.reg_time)
 async def select_time(message: Message, state: FSMContext):
     try:
         dtime = datetime.strptime(
@@ -513,7 +570,7 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
     user = await ClientsDAO.get_one_or_none(user_id=user_id)
     if user:
         first_name = user["first_name"]
-        full_name = f'{first_name} {user["last_name"]}'
+        last_name = user["last_name"]
         phone = user["phone"]
     else:
         return
@@ -530,8 +587,13 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
                 f"Общее примерное время процедур: {duration_str}",
                 f"Стоимость: {price}р.",
                 f"Выбранная дата: {reg_date.strftime('%d.%m.%Y')}",
-                f"Выбранное время: {reg_time.strftime('%H.%M')}\n",
+                f"Выбранное время: {reg_time.strftime('%H:%M')}\n",
             ]
+            client = await ClientsDAO.get_one_or_none(user_id=user_id)
+            client_duration = client["service_duration"]
+            if client_duration:
+                text.insert(-3,
+                            f"Индивидуальное фактическое время процедур: {client_duration // 60}ч {client_duration % 60}мин")
             text = "\n".join(text)
             await create_registration(
                 data=state_data,
@@ -542,9 +604,9 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
             chat_id = callback.from_user.id
             await bot.send_message(chat_id=chat_id, text=text)
 
-            if full_name == "":
-                await state.set_state(UserFSM.first_name_sign)
-                name_text = "Осталось ввести ваши ФИ, для завершения записи.\n\nНапишите, пожалуйста, свое Имя"
+            if last_name == "":
+                await state.set_state(UserFSM.last_name_sign)
+                name_text = "Введите вашу Фамилию, для завершения записи"
                 await bot.send_message(chat_id=chat_id, text=name_text)
             else:
                 await check_birthday(user_id=user_id, state=state)
@@ -657,67 +719,25 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer_sticker(sticker=sticker_id)
     user = await ClientsDAO.get_one_or_none(user_id=user_id)
     state_data = await state.get_data()
+    reg_date = state_data["reg_date"]
+    reg_time = state_data["reg_time"]
+    services = state_data["services"]
+    price = state_data["price"]
+    service_text = []
+    for service in services:
+        service_text.append(service["title"])
+    service_text = ", ".join(service_text)
     if user["entry_point"] == "office":
-        reg_date = state_data["reg_date"]
-        reg_time = state_data["reg_time"]
-        services = state_data["services"]
-        price = state_data["price"]
-        service_text = []
-        for service in services:
-            service_text.append(service["title"])
-        service_text = ", ".join(service_text)
         text = f"Ехуууу!! 🎉🎉🎉  Все данные заполнены.\n\n\nЗаписала тебя на " \
                f"{reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')} на следующие процедуры: " \
                f"{service_text}.\nСумма к оплате: {price} ₽.\nХорошего дня и отличного настроения!🌼"
         kb = None
     else:
-        text = "Ехуууу!! 🎉🎉🎉  Все данные заполнены. Запись сформирована. После внесения вам аванса придёт " \
-               "сообщение 💚"
-        await callback.message.answer(text)
         await asyncio.sleep(1)
-        text = "Так как мы еще с вами не знакомы 🤷 ‍♀️\n\nВо избежание новых недобросовестных клиентов, " \
-               "которые занимают время и не приходят, я вынуждена попросить у вас внести аванс в размере 500р. 🍓\nОн " \
-               "позволит мне быть уверенной в том, что вы точно придете  😉\n\nАванс будет учтен при оплате " \
-               "процедуры. Чек о его внесение придет сразу после оплаты. Благодарю за понимание 💚"
-        await callback.message.answer(text)
+        text = f"{user['first_name']}! Спасибо за доверие и жду на процедурах! 🫶🏻\n" \
+               f"Вы записались на {reg_date} {reg_time} на следующие процедуры: " \
+               f"{service_text}.\nСумма к оплате: {price}."
         last_regs = await RegistrationsDAO.get_last_4_ordering(user_id=str(callback.from_user.id))
-        reg_id = last_regs[0]["id"]
-        await RegistrationsDAO.update(reg_id=reg_id, advance="processing")
-        await PayRegistration2HoursScheduler.create(callback.from_user.id, reg_id)
-        text = 'Нажмите "Оплатить 500р" и вас перенаправит на платёжную форму для оплаты. Она безопасно!'
-        kb = UserSignUpInline.pay_advance_kb(reg_id=reg_id)
+        last_reg_id = last_regs[0]["id"]
+        kb = UserSignUpInline.after_reg_kb(reg_id=last_reg_id)
     await callback.message.answer(text, reply_markup=kb)
-
-
-@router.callback_query(F.data.split(":")[0] == "pay_advance")
-async def pay_advance(callback: CallbackQuery, state: FSMContext):
-    await state.update_data({"reg_id": callback.data.split(":")[1]})
-    price = LabeledPrice(label="Аванс", amount=500*100)
-    await bot.send_invoice(callback.message.chat.id,
-                           title="Аванс",
-                           description="Оплата аванса 500р новым клиентам",
-                           provider_token=payments_token,
-                           currency="rub",
-                           is_flexible=False,
-                           prices=[price],
-                           payload="advance-invoice-payload")
-
-
-@router.pre_checkout_query()
-async def pre_checkout_query(pre_checkout_q: PreCheckoutQuery):
-    await bot.answer_pre_checkout_query(pre_checkout_q.id, ok=True)
-
-
-@router.message(F.successful_payment)
-async def successful_payment(message: Message, state: FSMContext):
-    state_data = await state.get_data()
-    reg_id = int(state_data["reg_id"])
-    reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
-    client = await ClientsDAO.get_one_or_none(user_id=reg["user_id"])
-    full_name = f'{client["first_name"]} {client["last_name"]}'
-    await delete_event_by_reg_id(reg_id=reg_id)
-    await RegistrationsDAO.update(reg_id=reg_id, advance="finished")
-    await create_event(full_name, reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
-
-    await bot.send_message(message.chat.id,
-                           f"Платеж на сумму {message.successful_payment.total_amount // 100} {message.successful_payment.currency} прошел успешно!!!")
