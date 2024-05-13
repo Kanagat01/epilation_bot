@@ -59,6 +59,8 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
     for auto_text, dtime in auto_texts:
         if dtime > datetime.now():
             await AutoTextScheduler.create(auto_text, user_id, dtime)
+        else:
+            await AutoTextScheduler.func(auto_text, user_id)
 
     return registration["id"]
 
