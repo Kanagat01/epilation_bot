@@ -30,9 +30,14 @@ class AdminFSM(StatesGroup):
     schedule_date = State()
     first_date_of_range = State()
     second_date_of_range = State()
+
     block_date1 = State()
     block_date2 = State()
     cancel_reason = State()
+
+    unblock_date1 = State()
+    unblock_date2 = State()
+
     change_reg_id = State()
     new_reg_time = State()
 

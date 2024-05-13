@@ -37,7 +37,7 @@ async def schedule(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer("\n".join(text), reply_markup=kb)
 
 
-async def schedule_date_text_and_kb(schedule_date, page=0):
+async def schedule_date_text_and_kb(schedule_date: date | datetime, page=0):
     try:
         schedule_date = dt.date(schedule_date)
     except TypeError:
@@ -455,6 +455,111 @@ async def back_to_block_date2(callback: CallbackQuery, state: FSMContext):
     ]
     kb = inline_kb.block_date2_kb()
     await callback.message.answer("\n".join(text), reply_markup=kb)
+
+
+@router.callback_query(F.data.split(":")[0] == "unblock")
+async def unblock_time(callback: CallbackQuery, state: FSMContext):
+    schedule_date = callback.data.split(":")[1]
+    text = "Введите дату и время, с которого вы хотите отменить блокировку. Формат: 01.01.2001 09:00"
+    cb_data = f"back_to_schedule_date:{schedule_date}"
+    kb = inline_kb.back_btn(cb_data)
+    await state.set_data({"schedule_date": schedule_date})
+    await state.set_state(AdminFSM.unblock_date1)
+    await callback.message.answer(text, reply_markup=kb)
+
+
+@router.message(AdminFSM.unblock_date1)
+async def unblock_date1(message: Message, state: FSMContext):
+    format_str = "%d.%m.%Y %H:%M"
+    try:
+        datetime1 = dt.strptime(message.text, format_str)
+        if datetime1 < dt.now():
+            await message.answer("Введите время больше чем текущее")
+            return
+
+    except ValueError:
+        await message.answer("Неверный формат. Введите дату в формате 01.01.2001 09:00")
+        return
+
+    state_data = await state.get_data()
+    await state.update_data({"datetime1": datetime1})
+    await state.set_state(AdminFSM.unblock_date2)
+
+    text = [
+        f"Диапазон для отмены блокировки: {datetime1.strftime('%d.%m.%Y %H:%M')} - хх.хх.хххх ХХ:ХХ.",
+        "Введите дату и время, до которого будет отменена блокировка.",
+        "Формат тот же: 01.01.2001 09:00"
+    ]
+    kb = inline_kb.back_btn(f"unblock:{state_data['schedule_date']}")
+    await message.answer("\n".join(text), reply_markup=kb)
+
+
+@router.message(AdminFSM.unblock_date2)
+async def unblock_date2(message: Message, state: FSMContext):
+    state_data = await state.get_data()
+    format_str = "%d.%m.%Y %H:%M"
+
+    schedule_date = state_data["schedule_date"]
+    schedule_date = datetime.strptime(schedule_date, '%Y-%m-%d')
+
+    datetime1 = state_data["datetime1"]
+    try:
+        datetime2 = dt.strptime(message.text, format_str)
+        if datetime2 <= datetime1:
+            await message.answer(f"Введите дату больше чем {datetime1.strftime('%d.%m.%Y %H:%M')} в формате 01.01.2001 09:00")
+            return
+
+        if datetime2 - datetime1 >= timedelta(days=32):
+            await message.answer(f"Диапазон дат не должен превышать 32 дня")
+            return
+
+    except ValueError:
+        await message.answer("Неверный формат. Введите дату в формате 01.01.2001 09:00")
+        return
+
+    all_events = []
+    current_date = datetime1.date()
+    while current_date <= datetime2.date():
+        start_time = time(
+            0, 0) if current_date != datetime1.date() else datetime1.time()
+        finish_time = time(
+            23, 59) if current_date != datetime2.date() else datetime2.time()
+
+        events = await get_events(current_date, start_time, finish_time)
+        events = [
+            event for event in events if event["summary"].startswith("❌")]
+        all_events.extend(events)
+
+        current_date += timedelta(days=1)
+
+    if len(all_events) == 0:
+        await message.answer("В этом отрезке нет блокировок времени")
+        text, kb = await schedule_date_text_and_kb(schedule_date)
+        await message.answer("\n".join(text), reply_markup=kb)
+        await state.clear()
+        return
+
+    events_text = []
+    for event in all_events:
+        event_name = event["summary"]
+        date_string = event["start"]["dateTime"].split('T')[0]
+        date_object = dt.strptime(date_string, "%Y-%m-%d")
+        event_date = date_object.strftime("%d.%m.%Y")
+        start_time = event["start"]["dateTime"].split('T')[1][:5]
+        end_time = event["end"]["dateTime"].split('T')[1][:5]
+
+        await delete_event(event_id=event["id"])
+        events_text.append(
+            f'{event_date} {start_time}-{end_time} {event_name}')
+
+    text = [
+        "Была отменена блокировка следующих отрезков:",
+        "\n".join(events_text),
+    ]
+    await message.answer("\n".join(text))
+    text, kb = await schedule_date_text_and_kb(schedule_date)
+    await message.answer("\n".join(text), reply_markup=kb)
+    await state.clear()
 
 
 @router.callback_query(F.data.split("|")[0] == "back_to_schedule")

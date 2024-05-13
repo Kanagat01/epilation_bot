@@ -582,8 +582,6 @@ class AdminInlineKeyboard:
             [
                 InlineKeyboardButton(
                     text="Условные обозначения", callback_data="symbols"),
-                InlineKeyboardButton(text="Изменить запись",
-                                     callback_data=f"change_reg:back_to_schedule|{schedule_date}")
             ],
             [
                 InlineKeyboardButton(text="Другая дата",
@@ -592,10 +590,16 @@ class AdminInlineKeyboard:
                                      callback_data="date_range")
             ],
             [
+                InlineKeyboardButton(text="Изменить запись",
+                                     callback_data=f"change_reg:back_to_schedule|{schedule_date}"),
                 InlineKeyboardButton(text="Добавить запись",
                                      callback_data="clients"),
+            ],
+            [
                 InlineKeyboardButton(
-                    text="Заблокировать для записи", callback_data=f"block_for_reg:{schedule_date}")
+                    text="Заблокировать для записи", callback_data=f"block_for_reg:{schedule_date}"),
+                InlineKeyboardButton(
+                    text="Отменить блокировку", callback_data=f"unblock:{schedule_date}")
             ],
             [
                 InlineKeyboardButton(
