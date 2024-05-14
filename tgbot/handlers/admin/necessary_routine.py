@@ -2,8 +2,10 @@ from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 
+from create_bot import bot
 from tgbot.filters.admin import AdminFilter
-from tgbot.models.sql_connector import RegistrationsDAO, ClientsDAO, ServicesDAO, category_translation, status_translation
+from tgbot.keyboards.reply import UserReplyKeyboard
+from tgbot.models.sql_connector import RegistrationsDAO, ClientsDAO, ServicesDAO, TextsDAO, category_translation, status_translation
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
 
@@ -92,6 +94,7 @@ async def set_registration_price(message: Message, state: FSMContext):
     state_data = await state.get_data()
     registration = state_data["registration"]
     reg_id = registration["id"]
+    user_id = str(registration["user_id"])
     status = registration["status"]
     reg_date = registration["reg_date"]
     reg_time_start = registration["reg_time_start"]
@@ -110,9 +113,22 @@ async def set_registration_price(message: Message, state: FSMContext):
     full_name = state_data["full_name"]
     if message.text.isdigit():
         total_price = int(message.text)
-        client = await ClientsDAO.get_one_or_none(user_id=registration["user_id"])
+        client = await ClientsDAO.get_one_or_none(user_id=user_id)
         client_duration = client['service_duration']
         await RegistrationsDAO.update(reg_id=reg_id, total_price=total_price, status="finished")
+
+        text_dict = await TextsDAO.get_one_or_none(chapter=f"text|first_finished_reg")
+        text = text_dict["text"] if text_dict else None
+        if text and "{{ИМЯ}}" in text:
+            text = text.replace("{{ИМЯ}}", client["first_name"])
+
+        photo_dict = await TextsDAO.get_one_or_none(chapter=f"photo|first_finished_reg")
+        kb = UserReplyKeyboard.current_menu_kb()
+        if photo_dict:
+            await bot.send_photo(chat_id=user_id, photo=photo_dict["text"], caption=text, reply_markup=kb)
+        elif text:
+            await bot.send_message(chat_id=user_id, text=text, reply_markup=kb)
+
         await state.set_state(AdminFSM.routine_reg_time)
         text = [
             'Для записи',

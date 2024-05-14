@@ -34,6 +34,7 @@ class AdminInlineKeyboard:
             {"kb_title": "За 24 часа до приёма - текущим клиентам",
                 "clb_data": "before_24h_old"},
             {"kb_title": "За 2 часа до приёма", "clb_data": "before_2h"},
+            {"kb_title": "После первого приёма", "clb_data": "first_finished_reg"},
             {"kb_title": "Через 3 часа после процедуры - Био",
                 "clb_data": "after_3h_bio"},
             {"kb_title": "Через 3 часа после процедуры - Лазер",

@@ -26,6 +26,7 @@ class MailingScheduler(BaseScheduler):
                 text = mailing["text"].replace("{{ИМЯ}}", client["first_name"])
             else:
                 text = mailing["text"]
+
             if mailing["photo"]:
                 await bot.send_photo(chat_id=client["user_id"], photo=mailing["photo"], caption=text)
             else:
@@ -51,12 +52,17 @@ class AutoTextScheduler(BaseScheduler):
     @classmethod
     async def func(cls, auto_text: str, user_id: int):
         text_dict = await TextsDAO.get_one_or_none(chapter=f"text|{auto_text}")
-        if text_dict:
-            text = text_dict["text"]
-            if "{{ИМЯ}}" in text_dict["text"]:
-                client = await ClientsDAO.get_one_or_none(user_id=user_id)
-                text = text.replace(
-                    "{{ИМЯ}}", client["first_name"])
+        photo_dict = await TextsDAO.get_one_or_none(chapter=f"photo|{auto_text}")
+
+        text = text_dict["text"] if text_dict else None
+        if text_dict and "{{ИМЯ}}" in text_dict["text"]:
+            client = await ClientsDAO.get_one_or_none(user_id=user_id)
+            text = text.replace(
+                "{{ИМЯ}}", client["first_name"])
+
+        if photo_dict:
+            await bot.send_photo(chat_id=user_id, photo=photo_dict["text"], caption=text)
+        elif text:
             await bot.send_message(chat_id=user_id, text=text)
 
     @classmethod
@@ -78,24 +84,26 @@ class HolidayScheduler(BaseScheduler):
     @classmethod
     async def func(cls, auto_text: str):
         text_dict = await TextsDAO.get_one_or_none(chapter=f"text|{auto_text}")
+        photo_dict = await TextsDAO.get_one_or_none(chapter=f"photo|{auto_text}")
 
-        if text_dict:
-            if auto_text in ["new_year", "23_february", "8_march"]:
-                clients = await ClientsDAO.get_many()
+        if auto_text in ["new_year", "23_february", "8_march"]:
+            clients = await ClientsDAO.get_many()
 
-            elif auto_text == "1week_before_birthday":
-                birthday = (datetime.today() + timedelta(days=7)).date()
-                clients = await ClientsDAO.get_many(birthday=birthday)
+        elif auto_text == "1week_before_birthday":
+            birthday = (datetime.today() + timedelta(days=7)).date()
+            clients = await ClientsDAO.get_birthday_people(birth_date=birthday)
 
-            elif auto_text == "at_birthday":
-                clients = await ClientsDAO.get_many(birthday=datetime.today().date())
+        elif auto_text == "at_birthday":
+            clients = await ClientsDAO.get_birthday_people(birth_date=datetime.today().date())
 
-            for client in clients:
-                if "{{ИМЯ}}" in text_dict["text"]:
-                    text = text_dict["text"].replace(
-                        "{{ИМЯ}}", client["first_name"])
-                else:
-                    text = text_dict["text"]
+        for client in clients:
+            text = text_dict["text"] if text_dict else None
+            if text and "{{ИМЯ}}" in text:
+                text = text.replace("{{ИМЯ}}", client["first_name"])
+
+            if photo_dict:
+                await bot.send_photo(chat_id=client["user_id"], photo=photo_dict["text"], caption=text)
+            elif text:
                 await bot.send_message(chat_id=client["user_id"], text=text)
 
         dtime = datetime.today()
@@ -104,17 +112,15 @@ class HolidayScheduler(BaseScheduler):
 
     @classmethod
     async def create(cls, auto_text: str, dtime: datetime):
-        if "birthday" in auto_text:
-            prev_text = auto_text + dtime.strftime("%d.%m.%Y")
-        else:
-            prev_text = auto_text
+        job_id = f"{auto_text}_{cls.event_type}_{dtime.strftime('%d.%m.%Y %H:%M:%S')}"
 
-        scheduler.add_job(
-            id=f"{prev_text}_{cls.event_type}_{dtime.strftime('%d.%m.%Y %H:%M:%S')}",
-            func=cls.func,
-            trigger="date",
-            run_date=dtime,
-            kwargs={
-                "auto_text": auto_text
-            }
-        )
+        if not scheduler.get_job(job_id):
+            scheduler.add_job(
+                id=job_id,
+                func=cls.func,
+                trigger="date",
+                run_date=dtime,
+                kwargs={
+                    "auto_text": auto_text
+                }
+            )

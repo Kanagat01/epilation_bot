@@ -1,7 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import MetaData, DateTime, Column, Integer, String, TEXT, DATE, TIME, JSON, TIMESTAMP, select, \
-    insert, delete, update, or_, and_
+    insert, delete, update, or_, and_, extract
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker, as_declarative
@@ -210,6 +210,17 @@ class ClientsDAO(BaseDAO):
         async with async_session_maker() as session:
             query = select(cls.model.__table__.columns).filter_by(
                 **filter_by).order_by(cls.model.id)
+            result = await session.execute(query)
+            return result.mappings().all()
+
+    @classmethod
+    async def get_birthday_people(cls, birth_date: date) -> list:
+        async with async_session_maker() as session:
+            query = select(cls.model.__table__.columns).where(
+                extract('month', cls.model.birthday) == birth_date.month,
+                extract('day', cls.model.birthday) == birth_date.day,
+                cls.model.birthday != datetime.date(1900, 1, 1)
+            ).order_by(cls.model.id)
             result = await session.execute(query)
             return result.mappings().all()
 

@@ -551,14 +551,21 @@ async def set_client_birthday(message: Message, state: FSMContext):
         birthday = datetime.strptime(
             message.text, "%d.%m.%Y")
         await ClientsDAO.update(user_id=user_id, birthday=birthday)
-        job_id = "at_birthday" + birthday + "_holiday"
-        job = scheduler.get_job(job_id)
-        if not job:
-            week_before = birthday - timedelta(days=7)
-            week_before = week_before.replace(hour=11, minute=0)
-            birthday = birthday.replace(hour=11, minute=0)
-            await HolidayScheduler.create("1week_before_birthday", week_before)
-            await HolidayScheduler.create("at_birthday", birthday)
+
+        now = datetime.now()
+        week_before = birthday.replace(
+            year=now.year) - timedelta(days=7)
+        week_before = week_before.replace(hour=11, minute=0)
+        birthday = birthday.replace(hour=11, minute=0)
+
+        if week_before < now:
+            week_before = week_before.replace(year=now.year + 1)
+        if birthday < now:
+            birthday = birthday.replace(year=now.year + 1)
+
+        await HolidayScheduler.create("1week_before_birthday", week_before)
+        await HolidayScheduler.create("at_birthday", birthday)
+
         await message.answer("Дата рождения изменена")
 
         client = await ClientsDAO.get_one_or_none(user_id=user_id)

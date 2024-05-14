@@ -136,7 +136,7 @@ async def cancel_reg(callback: CallbackQuery):
 async def move_reg(callback: CallbackQuery):
     reg_id = int(callback.data.split(":")[1])
     await RegistrationsDAO.update(reg_id=reg_id, status="moved")
-    delete_event_by_reg_id(reg_id)
+    await delete_event_by_reg_id(reg_id)
     reg_type = "move_reg"
     await is_finished_reg(str(callback.from_user.id), reg_type)
 
@@ -657,14 +657,18 @@ async def check_birthday(user_id: str | int, state: FSMContext):
     if birthday:
         birthday_str = birthday.strftime("%d.%m.%Y")
         if birthday_str != "01.01.1900":
-            job_id = "at_birthday" + birthday_str + "_holiday"
-            job = scheduler.get_job(job_id)
-            if not job:
-                week_before = birthday - timedelta(days=7)
-                week_before = week_before.replace(hour=11, minute=0)
-                birthday = birthday.replace(hour=11, minute=0)
-                await HolidayScheduler.create("1week_before_birthday", week_before)
-                await HolidayScheduler.create("at_birthday", birthday)
+            now = datetime.now()
+            week_before = birthday.replace(year=now.year) - timedelta(days=7)
+            week_before = week_before.replace(hour=11, minute=0)
+            birthday = birthday.replace(hour=11, minute=0)
+
+            if week_before < now:
+                week_before = week_before.replace(year=now.year + 1)
+            if birthday < now:
+                birthday = birthday.replace(year=now.year + 1)
+
+            await HolidayScheduler.create("1week_before_birthday", week_before)
+            await HolidayScheduler.create("at_birthday", birthday)
         await resource_menu(user_id=user_id)
     else:
         text = "Введите вашу дату рождения. Эти данные позволяют мне радовать вас поздравлениями 💌 и " \
@@ -678,12 +682,19 @@ async def check_birthday(user_id: str | int, state: FSMContext):
 async def finish_reg(message: Message, state: FSMContext):
     try:
         birthday = datetime.strptime(message.text, "%d.%m.%Y")
-        job_id = "at_birthday" + birthday.strftime("%d.%m.%Y") + "_holiday"
-        job = scheduler.get_job(job_id)
-        if not job:
-            week_before = birthday - timedelta(days=7)
-            await HolidayScheduler.create("1week_before_birthday", week_before)
-            await HolidayScheduler.create("at_birthday", birthday)
+        now = datetime.now()
+        week_before = birthday.replace(
+            year=now.year) - timedelta(days=7)
+        week_before = week_before.replace(hour=11, minute=0)
+        birthday = birthday.replace(hour=11, minute=0)
+
+        if week_before < now:
+            week_before = week_before.replace(year=now.year + 1)
+        if birthday < now:
+            birthday = birthday.replace(year=now.year + 1)
+
+        await HolidayScheduler.create("1week_before_birthday", week_before)
+        await HolidayScheduler.create("at_birthday", birthday)
 
         await ClientsDAO.update(user_id=message.from_user.id, birthday=birthday)
         await state.set_state(UserFSM.home)
