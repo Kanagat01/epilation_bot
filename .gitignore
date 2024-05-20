@@ -65,3 +65,6 @@ venv.bak/
 static/
 server.txt
 migrations/versions/
+
+credentials.json
+token.json

@@ -746,7 +746,7 @@ async def finish_reg(callback: CallbackQuery, state: FSMContext):
     else:
         await asyncio.sleep(1)
         text = f"{user['first_name']}! Спасибо за доверие и жду на процедурах! 🫶🏻\n" \
-               f"Вы записались на {reg_date} {reg_time} на следующие процедуры: " \
+               f"Вы записались на {reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')} на следующие процедуры: " \
                f"{service_text}.\nСумма к оплате: {price}."
         last_regs = await RegistrationsDAO.get_last_4_ordering(user_id=str(callback.from_user.id))
         last_reg_id = last_regs[0]["id"]
