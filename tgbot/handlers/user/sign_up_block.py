@@ -466,7 +466,6 @@ async def finish_registration(user_id: str | int, state: FSMContext):
         client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
         full_name = f'{client["first_name"]} {client["last_name"]}'
 
-        await delete_event_by_reg_id(reg_id=reg_id)
         await RegistrationsDAO.update(reg_id=reg_id, reg_date=reg_date, reg_time_start=reg_time, reg_time_finish=reg_time_finish)
         await create_event(full_name, reg_date, reg_time, reg_time_finish)
 
