@@ -26,7 +26,6 @@ dp = Dispatcher()
 
 calendar_id = config.tg_bot.calendar_id
 local_tz = 'Europe/Moscow'
-# local_tz = 'Etc/GMT-5'
 local_tz_obj = timezone(local_tz)
 scheduler = AsyncIOScheduler(timezone=local_tz_obj)
 scheduler.add_jobstore('redis', jobs_key='example.jobs',
