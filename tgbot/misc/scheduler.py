@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from create_bot import scheduler, bot, config
-from tgbot.models.sql_connector import ClientsDAO, MailingsDAO, TextsDAO
+from tgbot.models.sql_connector import ClientsDAO, MailingsDAO, RegistrationsDAO, ServicesDAO, TextsDAO
 
 
 admin_ids = config.tg_bot.admin_ids
@@ -68,6 +68,7 @@ class AutoTextScheduler(BaseScheduler):
     @classmethod
     async def create(cls, auto_text: str, user_id: int, dtime: datetime):
         scheduler.add_job(
+            id=f"{dtime.strftime('%d.%m.%Y %H:%M:%S')}_{auto_text}_{user_id}",
             func=cls.func,
             trigger="date",
             run_date=dtime,
@@ -124,3 +125,44 @@ class HolidayScheduler(BaseScheduler):
                     "auto_text": auto_text
                 }
             )
+
+
+async def create_auto_texts(reg_id: int, user_id: str | int):
+    auto_texts = await get_auto_texts_list_for_registration(
+        reg_id=reg_id)
+    for auto_text, dtime in auto_texts:
+        if dtime > datetime.now():
+            await AutoTextScheduler.create(auto_text, user_id, dtime)
+        else:
+            await AutoTextScheduler.func(auto_text, user_id)
+
+
+async def delete_auto_texts(reg_id: int, user_id: int | str):
+    auto_texts = await get_auto_texts_list_for_registration(reg_id=reg_id)
+    for auto_text, dtime in auto_texts:
+        if dtime > datetime.now():
+            scheduler.remove_job(
+                f"{dtime.strftime('%d.%m.%Y %H:%M:%S')}_{auto_text}_{user_id}")
+
+
+async def get_auto_texts_list_for_registration(reg_id: int):
+    reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
+    user_id = str(reg['user_id'])
+    reg_start = datetime.combine(reg["reg_date"], reg["reg_time_start"])
+    reg_finish = datetime.combine(reg["reg_date"], reg["reg_time_finish"])
+    auto_texts = [
+        ("before_2h", reg_start - timedelta(hours=2)),
+        ("after_5h", reg_finish + timedelta(hours=5)),
+        ("after_1m", reg_finish + timedelta(days=30)),
+        ("after_3m", reg_finish + timedelta(days=90))
+    ]
+
+    finished_regs = await RegistrationsDAO.get_many(user_id=user_id, status="finished")
+    auto_texts.append(
+        (f"before_24h_{'old' if len(finished_regs) > 0 else 'new'}", reg_start - timedelta(days=1)))
+
+    service = await ServicesDAO.get_one_or_none(id=reg["services"][0])
+    auto_texts.append(
+        (f"after_3h_{'laser' if service['category'] == 'laser' else 'bio'}", reg_finish + timedelta(hours=3)))
+
+    return auto_texts

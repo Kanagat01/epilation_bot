@@ -5,6 +5,7 @@ from aiogram.fsm.context import FSMContext
 from create_bot import bot
 from tgbot.filters.admin import AdminFilter
 from tgbot.keyboards.reply import UserReplyKeyboard
+from tgbot.misc.registrations import update_registration
 from tgbot.models.sql_connector import RegistrationsDAO, ClientsDAO, ServicesDAO, TextsDAO, category_translation, status_translation
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
@@ -77,7 +78,7 @@ async def no_show(callback: CallbackQuery):
     reg_date = registration["reg_date"]
     reg_time_start = registration["reg_time_start"]
 
-    await RegistrationsDAO.update(reg_id=reg_id, status="no_show")
+    await update_registration(reg_id=reg_id, status="no_show")
     text = [
         "Для записи",
         f"#{reg_id} {reg_date} {reg_time_start} {full_name}",
@@ -115,7 +116,7 @@ async def set_registration_price(message: Message, state: FSMContext):
         total_price = int(message.text)
         client = await ClientsDAO.get_one_or_none(user_id=user_id)
         client_duration = client['service_duration']
-        await RegistrationsDAO.update(reg_id=reg_id, total_price=total_price, status="finished")
+        await update_registration(reg_id=reg_id, total_price=total_price, status="finished")
 
         text_dict = await TextsDAO.get_one_or_none(chapter=f"text|first_finished_reg")
         text = text_dict["text"] if text_dict else None

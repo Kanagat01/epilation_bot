@@ -24,7 +24,7 @@ def async_exception_handler_decorator(func):
         try:
             return await func(*args, **kwargs)
         except HttpError as e:
-            print(f"Произошла ошибка: {e}")
+            raise ValueError(f"Произошла ошибка: {e}")
     return wrapper
 
 
@@ -54,9 +54,6 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
     for event in events:
         event_name = event["summary"]
         if event_name.startswith("❌"):
-            # reg_datetime = get_reg_datetime(event)
-            # registration = await RegistrationsDAO.get_one_or_none(**reg_datetime)
-            # event["summary"] = event_name + f" [{registration['id']}]"
             continue
 
         first_name, last_name = re.sub(
@@ -78,31 +75,23 @@ async def get_events(schedule_date: Union[date, dt], start_time=time.min, end_ti
     return events
 
 
-async def update_event_name(event_name, event_date, start_time, end_time):
+async def update_event_name(event_name):
     if event_name.startswith("❌"):
         return event_name
 
     event_name = re.sub(r'[^\w\s]', '', event_name)
-    dict1 = {"approved": "✅", "confirmation_sent": "⏳", "new_client": "🆕"}
     first_name, last_name = event_name.split(" ")
     client = await ClientsDAO.get_one_or_none(first_name=first_name, last_name=last_name)
     if client:
-        reg = await RegistrationsDAO.get_one_or_none(user_id=client["user_id"], reg_date=event_date, reg_time_start=start_time, reg_time_finish=end_time)
-
         client_registrations = await RegistrationsDAO.get_by_user_id(user_id=client["user_id"], finished=True, is_sorted=True)
-        is_new_client = len(client_registrations) == 0
-
-        if is_new_client:
-            event_name = dict1["new_client"] + event_name
-
-        if reg["status"] in ["approved", "confirmation_sent"]:
-            event_name = dict1[reg["status"]] + event_name
+        if len(client_registrations) == 0:
+            event_name = "🆕" + event_name
     return event_name
 
 
 @async_exception_handler_decorator
 async def create_event(event_name: str, event_date: dt.date, start_time: dt.time, end_time: dt.time):
-    event_name = await update_event_name(event_name, event_date, start_time, end_time)
+    event_name = await update_event_name(event_name)
     start_time = dt.combine(event_date, start_time).isoformat()
     end_time = dt.combine(event_date, end_time).isoformat()
 
@@ -120,15 +109,6 @@ async def create_event(event_name: str, event_date: dt.date, start_time: dt.time
 
     event = calendar_service.events().insert(
         calendarId=calendar_id, body=event).execute()
-    # if event_name.startswith("❌"):
-    #     await RegistrationsDAO.create(
-    #         reg_date=event_date,
-    #         reg_time_start=start_time,
-    #         reg_time_finish=end_time,
-    #         status="blocked",
-    #         phone="",
-    #         user_id="",
-    #     )
     return event
 
 

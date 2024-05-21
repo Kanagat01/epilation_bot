@@ -9,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 from create_bot import bot, scheduler
 from tgbot.calendar_api.calendar import check_interval_for_events, get_events
 from tgbot.filters.admin import AdminFilter
-from tgbot.misc.registrations import create_registration
+from tgbot.misc.registrations import create_registration, update_registration
 from tgbot.models.sql_connector import RegistrationsDAO, ClientsDAO, ServicesDAO, TextsDAO, category_translation, gender_translation, status_translation
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
@@ -518,7 +518,7 @@ async def set_client_phone(message: Message, state: FSMContext):
             await ClientsDAO.update(user_id=client["user_id"], phone=phone)
             regs = await RegistrationsDAO.get_many(user_id=client["user_id"])
             for reg in regs:
-                await RegistrationsDAO.update(reg_id=reg["id"], phone=phone)
+                await update_registration(reg_id=reg["id"], phone=phone)
 
             text = "Телефон изменён"
             await message.answer(text)

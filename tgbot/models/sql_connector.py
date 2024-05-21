@@ -99,7 +99,7 @@ class RegistrationsDB(Base):
     reg_time_finish = Column(TIME, nullable=False)
     services = Column(JSON, nullable=True)
     total_price = Column(Integer, nullable=True)
-    # created no_show cancelled cancelled_by_master finished moved blocked confirmation_sent approved
+    # created no_show cancelled cancelled_by_master finished moved
     status = Column(String, nullable=False, default="created")
 
 
@@ -329,8 +329,7 @@ class RegistrationsDAO(BaseDAO):
             current_time = datetime.now().time()
             query = select(cls.model.__table__.columns).filter(
                 or_(cls.model.reg_date < today, and_(cls.model.reg_date == today, cls.model.reg_time_start < current_time))).\
-                filter(cls.model.status.in_(
-                    ["created", "moved", "blocked", "confirmation_sent", "approved"]))
+                filter(cls.model.status.in_(["created", "moved"]))
             result = await session.execute(query)
             return result.mappings().all()
 
@@ -351,7 +350,7 @@ class RegistrationsDAO(BaseDAO):
                     status="finished")
             if created:
                 query_registrations = query_registrations.filter(
-                    cls.model.status.in_(["created", "blocked"]))
+                    cls.model.status.in_(["created"]))
             if is_sorted:
                 query_registrations = query_registrations.order_by(
                     cls.model.reg_date.desc(),
@@ -375,8 +374,7 @@ class RegistrationsDAO(BaseDAO):
             query = select(cls.model.__table__.columns).filter_by(reg_date=reg_date).\
                 filter(or_(and_(start_time <= cls.model.reg_time_start, cls.model.reg_time_start <= finish_time),
                            and_(start_time <= cls.model.reg_time_finish, cls.model.reg_time_finish <= finish_time))).\
-                filter(cls.model.status.in_(
-                    ["created", "moved", "blocked", "confirmation_sent", "approved"]))
+                filter(cls.model.status.in_(["created", "moved"]))
             if except_reg_id:
                 query = query.filter(cls.model.id != except_reg_id)
             result = await session.execute(query)
@@ -405,8 +403,8 @@ class StaticsDAO(BaseDAO):
 
 
 def status_translation(status):
-    dict1 = {"created": "Создано", "no_show": "Не явился", "cancelled": "Отменено", "cancelled_by_master": "Отменено мастером", "finished": "Завершено", "moved": "Перенесено",
-             "blocked": "Заблокировано", "confirmation_sent": "Отправлено подтверждение", "approved": "Подтверждено"}
+    dict1 = {"created": "Создано", "no_show": "Не явился", "cancelled": "Отменено",
+             "cancelled_by_master": "Отменено мастером", "finished": "Завершено", "moved": "Перенесено"}
     return dict1[status]
 
 

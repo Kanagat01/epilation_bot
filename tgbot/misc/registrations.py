@@ -5,8 +5,8 @@ from aiogram.fsm.storage.base import StorageKey
 
 from create_bot import bot, dp
 from tgbot.handlers.user.registration_block import UserMainMenu
-from tgbot.misc.scheduler import AutoTextScheduler
-from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, ServicesDAO
+from tgbot.misc.scheduler import create_auto_texts, delete_auto_texts
+from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO
 from tgbot.calendar_api.calendar import create_event, delete_event_by_reg_id
 
 
@@ -34,39 +34,17 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
     )
     client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
     await create_event(f'{client["first_name"]} {client["last_name"]}', data["reg_date"], start_time, finish_time)
+    create_auto_texts(reg_id=int(registration["id"]), user_id=user_id)
 
     registration = await RegistrationsDAO.get_one_or_none(
         reg_date=data["reg_date"],
         reg_time_start=start_time
     )
-    reg_datetime = datetime.combine(data["reg_date"], start_time)
-
-    auto_texts = [
-        ("before_2h", reg_datetime - timedelta(hours=2)),
-        ("after_5h", reg_datetime + timedelta(hours=5)),
-        ("after_1m", reg_datetime + timedelta(days=30)),
-        ("after_3m", reg_datetime + timedelta(days=90))
-    ]
-
-    finished_regs = await RegistrationsDAO.get_many(user_id=str(user_id), status="finished")
-    auto_texts.append(
-        (f"before_24h_{'old' if len(finished_regs) > 0 else 'new'}", reg_datetime - timedelta(days=1)))
-
-    service = await ServicesDAO.get_one_or_none(id=services_ids[0])
-    auto_texts.append(
-        (f"after_3h_{'laser' if service['category'] == 'laser' else 'bio'}", reg_datetime + timedelta(hours=3)))
-
-    for auto_text, dtime in auto_texts:
-        if dtime > datetime.now():
-            await AutoTextScheduler.create(auto_text, user_id, dtime)
-        else:
-            await AutoTextScheduler.func(auto_text, user_id)
-
     return registration["id"]
 
 
 async def cancel_registration(user_id: int | str, reg_id: int, send_message=True):
-    await RegistrationsDAO.update(reg_id=reg_id, status="cancelled")
+    await update_registration(reg_id=reg_id, status="cancelled")
     text = "Запись отменена"
     state: FSMContext = FSMContext(
         bot=bot,
@@ -78,7 +56,22 @@ async def cancel_registration(user_id: int | str, reg_id: int, send_message=True
         )
 
     )
-    await delete_event_by_reg_id(reg_id)
     if send_message:
         await bot.send_message(chat_id=user_id, text=text)
     await UserMainMenu.menu_type(user_id=str(user_id), state=state)
+
+
+async def update_registration(reg_id: int, **data):
+    await RegistrationsDAO.update(reg_id=reg_id, **data)
+    if any(key in data for key in ["reg_date", "reg_time_start", "reg_time_finish"]) or ("status" in data and data["status"].startswith("cancelled")):
+        await delete_event_by_reg_id(reg_id)
+        await delete_auto_texts(reg_id)
+
+    if any(key in data for key in ["reg_date", "reg_time_start", "reg_time_finish"]):
+        reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
+        client = await ClientsDAO.get_one_or_none(user_id=str(reg["user_id"]))
+        full_name = client['first_name'] + " " + client['last_nae']
+        event_data = {"event_name": full_name, "event_date": reg["reg_date"],
+                      "start_time": reg["reg_time_start"], "end_time": reg["reg_time_finish"]}
+        await create_event(**event_data)
+        await create_auto_texts(reg_id)

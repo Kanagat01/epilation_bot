@@ -9,7 +9,7 @@ from aiogram.types import Message, CallbackQuery
 
 from create_bot import bot, scheduler
 from tgbot.calendar_api.calendar import create_event, delete_event_by_reg_id
-from tgbot.misc.registrations import cancel_registration, create_registration
+from tgbot.misc.registrations import cancel_registration, create_registration, update_registration
 from tgbot.misc.scheduler import HolidayScheduler
 from tgbot.misc.states import UserFSM
 from tgbot.models.sql_connector import ClientsDAO, RegistrationsDAO, StaticsDAO, ServicesDAO, category_translation
@@ -42,7 +42,7 @@ async def check_user(user_id: str | int):
         created_registration = None
         if len(last_regs) > 0:
             for reg in last_regs:
-                if reg["status"] in ["created", "moved", "blocked", "confirmation_sent", "approved"]:
+                if reg["status"] in ["created", "moved"]:
                     created_registration = reg
         if created_registration:
             await is_created_reg(user_id=user_id, user=user, reg_profile=created_registration)
@@ -135,8 +135,7 @@ async def cancel_reg(callback: CallbackQuery):
 @router.callback_query(F.data.split(":")[0] == "move_reg")
 async def move_reg(callback: CallbackQuery):
     reg_id = int(callback.data.split(":")[1])
-    await RegistrationsDAO.update(reg_id=reg_id, status="moved")
-    await delete_event_by_reg_id(reg_id)
+    await update_registration(reg_id=reg_id, status="moved")
     reg_type = "move_reg"
     await is_finished_reg(str(callback.from_user.id), reg_type)
 
@@ -464,10 +463,8 @@ async def finish_registration(user_id: str | int, state: FSMContext):
         reg_time_finish = (datetime.combine(
             reg_date, reg_time) + timedelta(minutes=duration)).time()
         client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
-        full_name = f'{client["first_name"]} {client["last_name"]}'
 
-        await RegistrationsDAO.update(reg_id=reg_id, reg_date=reg_date, reg_time_start=reg_time, reg_time_finish=reg_time_finish)
-        await create_event(full_name, reg_date, reg_time, reg_time_finish)
+        await update_registration(reg_id=reg_id, reg_date=reg_date, reg_time_start=reg_time, reg_time_finish=reg_time_finish)
 
         text = f"Ваша запись успешно перенесена на {reg_date.strftime('%d.%m.%Y')} {reg_time.strftime('%H.%M')}." \
                f"\nХорошего дня и отличного настроения 🌻"

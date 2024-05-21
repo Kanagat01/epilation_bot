@@ -8,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 
 from create_bot import bot
 from tgbot.filters.admin import AdminFilter
+from tgbot.misc.registrations import update_registration
 from tgbot.models.sql_connector import RegistrationsDAO
 from tgbot.keyboards.inline import AdminInlineKeyboard as inline_kb
 from tgbot.misc.states import AdminFSM
@@ -409,14 +410,10 @@ async def cancel_reason(message: Message, state: FSMContext):
     datetime1 = state_data["datetime1"]
     datetime2 = state_data["datetime2"]
     regs = state_data["regs"]
-    events = state_data["events"]
-
-    for event in events:
-        await delete_event(event["id"])
 
     for reg in regs:
         reg_id = reg["id"]
-        await RegistrationsDAO.update(reg_id=reg_id, status="cancelled_by_master")
+        await update_registration(reg_id=reg_id, status="cancelled_by_master")
         text = [
             f'Ваша запись на {reg["reg_date"].strftime("%d.%m.%Y %H:%M")} отменена мастером.',
             f'Причина: {reason}'
@@ -689,9 +686,7 @@ async def new_reg_time(message: Message, state: FSMContext):
         category = state_data["category"]
         services_text = state_data["services_text"]
 
-        await delete_event_by_reg_id(reg["id"])
-        await RegistrationsDAO.update(reg_id=reg["id"], reg_date=reg_date, reg_time_start=start_time, reg_time_finish=finish_time)
-        await create_event(full_name, reg_date, start_time, finish_time)
+        await update_registration(reg_id=reg["id"], reg_date=reg_date, reg_time_start=start_time, reg_time_finish=finish_time)
 
         reg_date = reg_date.strftime("%d.%m.%Y")
         start_time = start_time.strftime("%H:%M")
@@ -719,8 +714,7 @@ async def new_reg_time(message: Message, state: FSMContext):
 async def cancel_reg_by_master(callback: CallbackQuery, state: FSMContext):
     state_data = await state.get_data()
     reg = state_data["reg"]
-    await RegistrationsDAO.update(reg_id=reg["id"], status="cancelled_by_master")
-    await delete_event_by_reg_id(reg["id"])
+    await update_registration(reg_id=reg["id"], status="cancelled_by_master")
 
     client = state_data["client"]
     full_name = f'{client["first_name"]} {client["last_name"]}'
