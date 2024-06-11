@@ -26,7 +26,8 @@ async def necessary_routine_text_and_kb():
             user = await ClientsDAO.get_one_or_none(user_id=x["user_id"])
             full_name = f'{user["first_name"]} {user["last_name"]}'
             full_names.append(full_name)
-            registrations.append(f"{reg_date} {reg_time_start} {full_name}")
+            registrations.append(
+                f"{reg_date.strftime('%d.%m.%Y')} {reg_time_start.strftime('%H:%M')} {full_name}")
 
         text = [
             "События, требуемые ваших действий.\n",
@@ -57,8 +58,8 @@ async def check_registraion(callback: CallbackQuery, state: FSMContext):
     reg_date = registration["reg_date"]
     reg_time_start = registration["reg_time_start"]
     text = [
-        "<s><b>Выбрана запись</b></s>",
-        f"<s><b>Запись #{reg_id} {reg_date} {reg_time_start} {full_name}</b></s>\n",
+        "<b>Выбрана запись</b>",
+        f"<b>Запись #{reg_id} {reg_date.strftime('%d.%m.%Y')} {reg_time_start.strftime('%H:%M')} {full_name}</b>\n",
         "Если клиент не пришел, то нажмите соответствующую кнопку. Если",
         "клиент пришел - напишите цену, которую заплатил клиент. Без",
         'пробелов, знаков "р" и др, например "5000".',
@@ -81,7 +82,7 @@ async def no_show(callback: CallbackQuery):
     await update_registration(reg_id=reg_id, status="no_show")
     text = [
         "Для записи",
-        f"#{reg_id} {reg_date} {reg_time_start} {full_name}",
+        f"#{reg_id} {reg_date.strftime('% d. % m. % Y')} {reg_time_start.strftime('% H: % M')} {full_name}",
         'проставлена отметка "Не пришёл".'
     ]
     await callback.message.answer("\n".join(text))
@@ -133,7 +134,7 @@ async def set_registration_price(message: Message, state: FSMContext):
         await state.set_state(AdminFSM.routine_reg_time)
         text = [
             'Для записи',
-            f'#{reg_id} {reg_date} {reg_time_start} {full_name}',
+            f'#{reg_id} {reg_date.strftime("%d.%m.%Y")} {reg_time_start.strftime("%H:%M")} {full_name}',
             f'Статус: {status_translation(status)}.',
             f'Оплачено: {total_price}.',
             'Процедуры:',
@@ -149,8 +150,8 @@ async def set_registration_price(message: Message, state: FSMContext):
 
     else:
         text = [
-            "<s><b>Выбрана запись</b></s>",
-            f"<s><b>Запись #{reg_id} {reg_date} {reg_time_start} {full_name}</b></s>\n",
+            "<b>Выбрана запись</b>",
+            f"<b>Запись #{reg_id} {reg_date.strftime('%d.%m.%Y')} {reg_time_start.strftime('%H:%M')} {full_name}</b>\n",
             "Если клиент не пришел, то нажмите соответствующую кнопку. Если",
             "клиент пришел - напишите цену, которую заплатил клиент. Без",
             'пробелов, знаков "р" и др, например "5000".',
