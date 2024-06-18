@@ -119,8 +119,10 @@ async def delete_event(event_id: int):
 
 async def delete_event_by_reg_id(reg_id: int):
     reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
-    event = await get_events(reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
-    await delete_event(event[0]["id"])
+    events = await get_events(reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
+    print(reg["reg_date"], reg["reg_time_start"], reg["reg_time_finish"])
+    print(events)
+    await delete_event(events[0]["id"])
 
 
 async def check_interval_for_events(schedule_date, start_time, end_time, except_event_id=None, except_reg_id=None):

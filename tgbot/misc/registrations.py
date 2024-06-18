@@ -33,13 +33,12 @@ async def create_registration(data: dict, phone: str, user_id: str | int, client
         user_id=str(user_id)
     )
     client = await ClientsDAO.get_one_or_none(user_id=str(user_id))
-    await create_event(f'{client["first_name"]} {client["last_name"]}', data["reg_date"], start_time, finish_time)
-    create_auto_texts(reg_id=int(registration["id"]), user_id=user_id)
-
     registration = await RegistrationsDAO.get_one_or_none(
         reg_date=data["reg_date"],
         reg_time_start=start_time
     )
+    await create_event(f'{client["first_name"]} {client["last_name"]}', data["reg_date"], start_time, finish_time)
+    await create_auto_texts(reg_id=int(registration["id"]), user_id=user_id)
     return registration["id"]
 
 
@@ -62,16 +61,16 @@ async def cancel_registration(user_id: int | str, reg_id: int, send_message=True
 
 
 async def update_registration(reg_id: int, **data):
-    await RegistrationsDAO.update(reg_id=reg_id, **data)
+    reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
     if any(key in data for key in ["reg_date", "reg_time_start", "reg_time_finish"]) or ("status" in data and data["status"].startswith("cancelled")):
         await delete_event_by_reg_id(reg_id)
-        await delete_auto_texts(reg_id)
+        await delete_auto_texts(reg_id, reg["user_id"])
 
+    await RegistrationsDAO.update(reg_id=reg_id, **data)
     if any(key in data for key in ["reg_date", "reg_time_start", "reg_time_finish"]):
-        reg = await RegistrationsDAO.get_one_or_none(id=reg_id)
         client = await ClientsDAO.get_one_or_none(user_id=str(reg["user_id"]))
-        full_name = client['first_name'] + " " + client['last_nae']
+        full_name = client['first_name'] + " " + client['last_name']
         event_data = {"event_name": full_name, "event_date": reg["reg_date"],
                       "start_time": reg["reg_time_start"], "end_time": reg["reg_time_finish"]}
         await create_event(**event_data)
-        await create_auto_texts(reg_id)
+        await create_auto_texts(reg_id, reg["user_id"])

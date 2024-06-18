@@ -215,13 +215,15 @@ async def client_text_and_kb(client, page=0):
     end_idx = None
     if len(registrations) > 0:
         last_reg = registrations[0]
-        last_reg_service = await ServicesDAO.get_one_or_none(id=last_reg["services"][0])
-        category = category_translation(last_reg_service['category'])
-
-        duration_auto = 0
+        category = None
+        services_text = []
+        duration = 0
         for service_id in last_reg["services"]:
             service = await ServicesDAO.get_one_or_none(id=service_id)
-            duration_auto += service["duration"]
+            duration += service["duration"]
+            if not category:
+                category = category_translation(service["category"])
+            services_text.append(service["title"])
 
         last_regs = registrations[0:4]
         cancel_counter = 0
@@ -242,8 +244,8 @@ async def client_text_and_kb(client, page=0):
                 f"{reg['id']}. {reg_category} на {reg['reg_date']} {reg['reg_time_start']} / {reg_status}")
 
         text.extend([
-            f"Последняя запись: {category}: {last_reg_service['title']}.",
-            f"Время процедур - {duration_auto} минут (авто)",
+            f"Последняя запись: {category}: {', '.join(services_text)}.",
+            f"Время процедур - {duration} минут (авто)",
             f"Время процедур - {client['service_duration']} минут (вручную)",
             f"Комментарий мастера: {client['note']}",
             f"Количество отмен онлайн-записи подряд: {cancel_counter}\n",

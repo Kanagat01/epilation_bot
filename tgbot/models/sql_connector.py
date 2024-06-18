@@ -334,17 +334,10 @@ class RegistrationsDAO(BaseDAO):
             return result.mappings().all()
 
     @classmethod
-    async def get_by_user_id(cls, user_id: str, finished=None, created=None, is_sorted=False) -> dict:
+    async def get_by_user_id(cls, user_id: str, finished: bool = None, created: bool = None, is_sorted: bool = False) -> dict:
         async with async_session_maker() as session:
-            query_clients = select(ClientsDB.__table__.columns).filter_by(
-                user_id=user_id).limit(1)
-            result = await session.execute(query_clients)
-            user = result.mappings().one_or_none()
-            if not user:
-                return list()
-            phone = user["phone"]
             query_registrations = select(
-                cls.model.__table__.columns).filter_by(phone=phone)
+                cls.model.__table__.columns).filter_by(user_id=user_id)
             if finished:
                 query_registrations = query_registrations.filter_by(
                     status="finished")

@@ -15,9 +15,9 @@ from tgbot.handlers.user.address_block import router as address_block
 from tgbot.handlers.user.about_me_block import router as about_me_block
 from tgbot.handlers.user.write_to_personal import router as write_to_personal
 from tgbot.handlers.echo import router as echo_router
+from tgbot.misc.scheduler import HolidayScheduler
 
 from create_bot import bot, dp, scheduler, logger, register_global_middlewares, config
-from tgbot.misc.scheduler import HolidayScheduler
 
 admin_routers = [
     admin_router,

@@ -63,8 +63,11 @@ venv.bak/
 .env
 
 static/
-server.txt
 migrations/versions/
+server.txt
+logger.log
 
 credentials.json
 token.json
+oxana_creds.json
+oxana_token.json

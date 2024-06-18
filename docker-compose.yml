@@ -15,8 +15,16 @@ services:
     restart: always
     env_file:
       - ".env"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   redis:
     image: 'redis:7.2.4'
     ports:
       - '6379:6379'
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"

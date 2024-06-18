@@ -38,6 +38,8 @@ bl.basic_colorized_config(level=log_level)
 SCOPES = ["https://www.googleapis.com/auth/calendar.events"]
 token_path = "tgbot/calendar_api/token.json"
 creds_path = "tgbot/calendar_api/credentials.json"
+# token_path = "tgbot/calendar_api/oxana_token.json"
+# creds_path = "tgbot/calendar_api/oxana_creds.json"
 
 creds = None
 if os.path.exists(token_path):

@@ -7,8 +7,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
 
-from create_bot import bot, scheduler
-from tgbot.calendar_api.calendar import create_event, delete_event_by_reg_id
+from create_bot import bot
 from tgbot.misc.registrations import cancel_registration, create_registration, update_registration
 from tgbot.misc.scheduler import HolidayScheduler
 from tgbot.misc.states import UserFSM
@@ -305,6 +304,9 @@ async def switch_service(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "main_menu_c_accept")
 async def accept_reg(callback: CallbackQuery, state: FSMContext):
+    regs = await RegistrationsDAO.get_by_user_id(user_id=str(callback.from_user.id), finished=True)
+    is_new_client = len(regs) == 0
+
     state_data = await state.get_data()
     ok_services = state_data["ok_services"]
     gender = state_data["gender"]
@@ -329,9 +331,11 @@ async def accept_reg(callback: CallbackQuery, state: FSMContext):
         "Зоны эпиляции:",
         "\n".join(services_text),
         f"Ориентировочное суммарное время процедур - {duration_str}",
-        f"Итого стоимость: {price_counter}р*",
-        "* - стоимость указана, без учёта бонуса -30% на 1 зону для новых клиентов."
+        f"Итого стоимость: {price_counter}р{'*' if is_new_client else ''}"
     ]
+    if is_new_client:
+        text.append(
+            "* - стоимость указана, без учёта бонуса -30% на 1 зону для новых клиентов.")
     kb = UserSignUpInline.create_reg_accept_kb(category=category)
     await state.update_data(duration=duration_counter, price=price_counter, services=services_list, reg_type="new_reg")
     await callback.message.answer(text="\n".join(text), reply_markup=kb)
